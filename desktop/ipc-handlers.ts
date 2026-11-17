@@ -56,8 +56,17 @@ async function downloadFileWithProgress(url: string): Promise<string> {
   const downloadsDir = app.getPath('downloads');
   const fileName = url.split('/').pop() || 'ytd-update.zip';
   const destPath = path.join(downloadsDir, fileName);
+  const tempPath = `${destPath}.download`; // Atomic write: use temp file
 
   return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      } catch (err) {
+        logger.warn('[Update] Cleanup failed', { path: tempPath });
+      }
+    };
+
     const follow = (currentUrl: string) => {
       https.get(currentUrl, { headers: { 'User-Agent': 'ytd-updater' } }, (res: IncomingMessage) => {
         // Follow redirects
@@ -68,13 +77,16 @@ async function downloadFileWithProgress(url: string): Promise<string> {
         }
 
         if (res.statusCode !== 200) {
+          cleanup();
           return reject(new Error(`Download failed: HTTP ${res.statusCode}`));
         }
 
         const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
         let downloaded = 0;
-        const file = fs.createWriteStream(destPath);
+        let responseEnded = false;
+        const file = fs.createWriteStream(tempPath);
 
+        // Track download progress
         res.on('data', (chunk: Buffer) => {
           downloaded += chunk.length;
           // Report progress
@@ -89,10 +101,27 @@ async function downloadFileWithProgress(url: string): Promise<string> {
           }
         });
 
+        // Track when response ends (successfully or not)
+        res.on('end', () => {
+          responseEnded = true;
+        });
+
+        res.on('error', (err: Error) => {
+          file.destroy();
+          cleanup();
+          reject(new Error(`Network error: ${err.message}`));
+        });
+
         res.pipe(file);
 
         file.on('finish', () => {
           file.close();
+
+          // Check if response ended prematurely
+          if (!responseEnded) {
+            cleanup();
+            return reject(new Error('Download interrupted: connection closed before completion'));
+          }
 
           // Verify download completed fully
           if (totalBytes > 0 && downloaded !== totalBytes) {
@@ -102,19 +131,15 @@ async function downloadFileWithProgress(url: string): Promise<string> {
             logger.error('[Update] Download integrity check failed', {
               downloaded,
               expected: totalBytes,
-              path: destPath,
+              path: tempPath,
             });
-            try {
-              fs.unlinkSync(destPath); // Delete partial file
-            } catch (unlinkErr) {
-              logger.warn('[Update] Failed to delete partial file', { path: destPath });
-            }
+            cleanup();
             return reject(error);
           }
 
           // Verify it's a valid zip file (check magic number: PK)
           try {
-            const fd = fs.openSync(destPath, 'r');
+            const fd = fs.openSync(tempPath, 'r');
             const header = Buffer.alloc(4);
             fs.readSync(fd, header, 0, 4, 0);
             fs.closeSync(fd);
@@ -122,37 +147,41 @@ async function downloadFileWithProgress(url: string): Promise<string> {
             const isZip = header[0] === 0x50 && header[1] === 0x4B; // "PK" signature
             if (!isZip) {
               const error = new Error('Downloaded file is not a valid zip');
-              logger.error('[Update] Zip validation failed', { path: destPath });
-              try {
-                fs.unlinkSync(destPath);
-              } catch (unlinkErr) {
-                logger.warn('[Update] Failed to delete invalid file', { path: destPath });
-              }
+              logger.error('[Update] Zip validation failed', { path: tempPath });
+              cleanup();
               return reject(error);
             }
           } catch (validationErr) {
             const error = new Error(`Download validation failed: ${(validationErr as Error).message}`);
             logger.error('[Update] File validation error', { error: validationErr });
+            cleanup();
             return reject(error);
           }
 
-          logger.info('[Update] Download complete and verified', {
-            path: destPath,
-            bytes: downloaded,
-          });
-          resolve(destPath);
+          // All checks passed - atomically move temp file to final location
+          try {
+            if (fs.existsSync(destPath)) {
+              fs.unlinkSync(destPath); // Remove old file if exists
+            }
+            fs.renameSync(tempPath, destPath);
+            logger.info('[Update] Download complete and verified', {
+              path: destPath,
+              bytes: downloaded,
+            });
+            resolve(destPath);
+          } catch (moveErr) {
+            cleanup();
+            reject(new Error(`Failed to finalize download: ${(moveErr as Error).message}`));
+          }
         });
 
         file.on('error', (err: Error) => {
-          try {
-            fs.unlinkSync(destPath);
-          } catch (unlinkErr) {
-            logger.warn('[Update] Failed to delete file after error', { path: destPath });
-          }
-          reject(err);
+          cleanup();
+          reject(new Error(`File write error: ${err.message}`));
         });
       }).on('error', (err: Error) => {
-        reject(err);
+        cleanup();
+        reject(new Error(`HTTP request error: ${err.message}`));
       });
     };
 
