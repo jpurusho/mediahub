@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, IconButton, Typography, Slider, Alert, Button } from '@mui/material';
+import { Box, IconButton, Typography, Slider, Alert, Button, Tooltip } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -8,6 +8,8 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import SubtitlesIcon from '@mui/icons-material/Subtitles';
+import SubtitlesOffIcon from '@mui/icons-material/SubtitlesOff';
 import TranscriptButton from '../TranscriptButton/TranscriptButton';
 import TranscriptViewer from '../TranscriptViewer/TranscriptViewer';
 import type { DownloadRecord, LibraryItem, Transcript } from '@shared/types';
@@ -50,7 +52,11 @@ export default function VideoPlayer({ open, record, onClose }: Props) {
   const resizing = useRef<string | null>(null);
   const dragStart = useRef({ mx: 0, my: 0, x: 0, y: 0, w: 0, h: 0 });
   const [transcript, setTranscript] = useState<Transcript | null>(null);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(() => {
+    // Load user preference from localStorage, default to true
+    const saved = localStorage.getItem('ytd_showTranscript');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [transcriptHeight, setTranscriptHeight] = useState(200);
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
   const dividerStartY = useRef(0);
@@ -91,7 +97,9 @@ export default function VideoPlayer({ open, record, onClose }: Props) {
           if (existingTranscript && existingTranscript.status === 'completed') {
             console.log('[VideoPlayer] Loaded existing transcript:', videoId, existingTranscript);
             setTranscript(existingTranscript);
-            setShowTranscript(true);
+            // Respect user's saved preference
+            const savedPref = localStorage.getItem('ytd_showTranscript');
+            setShowTranscript(savedPref !== null ? savedPref === 'true' : true);
           }
         }).catch((err) => {
           console.log('[VideoPlayer] No transcript found:', videoId, err);
@@ -334,12 +342,38 @@ export default function VideoPlayer({ open, record, onClose }: Props) {
           {record?.title || 'Player'}
         </Typography>
         {record?.videoId && (
-          <Box onClick={(e) => e.stopPropagation()}>
+          <Box onClick={(e) => e.stopPropagation()} display="flex" alignItems="center" gap={0.5}>
             <TranscriptButton
               videoId={record.videoId}
               size="small"
-              onComplete={(t) => { setTranscript(t); setShowTranscript(true); }}
+              onComplete={(t) => {
+                setTranscript(t);
+                setShowTranscript(true);
+                localStorage.setItem('ytd_showTranscript', 'true');
+              }}
             />
+            {transcript && (
+              <Tooltip title={showTranscript ? "Hide transcript" : "Show transcript"}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newValue = !showTranscript;
+                    setShowTranscript(newValue);
+                    localStorage.setItem('ytd_showTranscript', String(newValue));
+                  }}
+                  sx={{
+                    color: showTranscript ? 'primary.main' : 'text.secondary',
+                  }}
+                >
+                  {showTranscript ? (
+                    <SubtitlesIcon sx={{ fontSize: 16 }} />
+                  ) : (
+                    <SubtitlesOffIcon sx={{ fontSize: 16 }} />
+                  )}
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         )}
         <IconButton size="small" onClick={(e) => { e.stopPropagation(); openInSystem(); }} title="System player">
