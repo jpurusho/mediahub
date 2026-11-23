@@ -15,6 +15,7 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
   const [formatted, setFormatted] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   // Load JSON file
   useEffect(() => {
@@ -72,11 +73,32 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(formatted || jsonContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }, [formatted, jsonContent]);
 
   const handleOpenExternal = useCallback(() => {
     window.api.app.openExternal(`file://${filePath}`);
   }, [filePath]);
+
+  // Syntax highlight JSON
+  const syntaxHighlight = (json: string): string => {
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+      let cls = 'number';
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'key';
+        } else {
+          cls = 'string';
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'boolean';
+      } else if (/null/.test(match)) {
+        cls = 'null';
+      }
+      return `<span class="${cls}">${match}</span>`;
+    });
+  };
 
   return (
     // Full-screen overlay
@@ -134,15 +156,20 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
           <IconButton
             onClick={handleCopy}
             sx={{
-              color: 'white',
+              color: copied ? '#4caf50' : 'white',
               WebkitAppRegion: 'no-drag',
               pointerEvents: 'auto',
             }}
             size="small"
-            title="Copy to clipboard"
+            title={copied ? 'Copied!' : 'Copy to clipboard'}
           >
             <ContentCopyIcon />
           </IconButton>
+          {copied && (
+            <Typography variant="caption" sx={{ color: '#4caf50', mr: 1 }}>
+              Copied!
+            </Typography>
+          )}
           <IconButton
             onClick={handleOpenExternal}
             sx={{
@@ -207,34 +234,62 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
               bgcolor: '#282c34',
               borderRadius: 1,
               overflow: 'hidden',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
             }}
           >
             {error && (
-              <Box sx={{ p: 1, bgcolor: '#ffa50033', borderBottom: '1px solid #ffa500' }}>
-                <Typography variant="caption" color="warning.main">
+              <Box sx={{ p: 1.5, bgcolor: '#ffa50033', borderBottom: '1px solid #ffa500' }}>
+                <Typography variant="caption" color="warning.main" sx={{ fontWeight: 500 }}>
                   ⚠️ {error}
                 </Typography>
               </Box>
             )}
             <Box
-              component="pre"
               sx={{
-                m: 0,
-                p: 3,
-                color: '#abb2bf',
-                fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
+                display: 'flex',
                 overflow: 'auto',
                 maxHeight: 'calc(100vh - 200px)',
-                '& .string': { color: '#98c379' },
-                '& .number': { color: '#d19a66' },
-                '& .boolean': { color: '#56b6c2' },
-                '& .null': { color: '#c678dd' },
-                '& .key': { color: '#e06c75' },
               }}
             >
-              {formatted}
+              {/* Line numbers */}
+              <Box
+                sx={{
+                  p: 3,
+                  pr: 2,
+                  bgcolor: '#21252b',
+                  color: '#5c6370',
+                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  textAlign: 'right',
+                  userSelect: 'none',
+                  borderRight: '1px solid #181a1f',
+                }}
+              >
+                {formatted.split('\n').map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </Box>
+              {/* JSON content */}
+              <Box
+                component="pre"
+                dangerouslySetInnerHTML={{ __html: syntaxHighlight(formatted) }}
+                sx={{
+                  m: 0,
+                  p: 3,
+                  pl: 2,
+                  flex: 1,
+                  color: '#abb2bf',
+                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  '& .string': { color: '#98c379' },
+                  '& .number': { color: '#d19a66' },
+                  '& .boolean': { color: '#56b6c2' },
+                  '& .null': { color: '#c678dd' },
+                  '& .key': { color: '#e06c75', fontWeight: 500 },
+                }}
+              />
             </Box>
           </Box>
         )}
