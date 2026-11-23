@@ -1,6 +1,6 @@
 {
-  "name": "ytd",
-  "version": "1.9.9",
+  "name": "mediahub",
+  "version": "2.0.0",
   "description": "MediaHub - Comprehensive Media Library Manager",
   "main": "dist/desktop/index.js",
   "author": "Jerome Purushotham",
