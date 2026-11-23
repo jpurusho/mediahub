@@ -255,6 +255,9 @@ function runMigrations(): void {
   if (currentVersion < 3) {
     migrateToV3();
   }
+  if (currentVersion < 4) {
+    migrateToV4();
+  }
 }
 
 function migrateToV2(): void {
@@ -514,6 +517,116 @@ function migrateToV3(): void {
 
   migrate();
   console.log('[db] Migration to schema v3 complete.');
+}
+
+/**
+ * Migration to schema v4: Add HTML media type support
+ *
+ * Changes:
+ * - Update media_items CHECK constraint to include 'html' type
+ */
+function migrateToV4(): void {
+  console.log('[db] Running migration to schema v4 (HTML media type support)...');
+
+  const migrate = db.transaction(() => {
+    // 1. Create new table with updated CHECK constraint
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS media_items_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        -- Source and identification
+        source TEXT NOT NULL CHECK(source IN ('youtube', 'local')),
+        source_id TEXT UNIQUE,
+
+        -- Common metadata
+        title TEXT NOT NULL,
+        media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'html', 'document')),
+        file_path TEXT NOT NULL,
+        file_size INTEGER DEFAULT 0,
+        duration INTEGER DEFAULT 0,
+
+        -- Thumbnail
+        thumbnail_path TEXT,
+        thumbnail_url TEXT,
+        thumbnail_generated_at TEXT,
+
+        -- YouTube-specific metadata
+        youtube_video_id TEXT,
+        youtube_channel TEXT,
+        youtube_channel_id TEXT,
+        youtube_url TEXT,
+        youtube_format TEXT,
+        youtube_quality TEXT,
+        youtube_resolution TEXT,
+        youtube_published_at TEXT,
+        youtube_downloaded_at TEXT,
+
+        -- Local file metadata
+        mime_type TEXT,
+        file_extension TEXT,
+        file_modified_at TEXT,
+        file_created_at TEXT,
+
+        -- Audio metadata (ID3 tags, etc.)
+        audio_artist TEXT,
+        audio_album TEXT,
+        audio_year INTEGER,
+        audio_genre TEXT,
+        audio_bitrate INTEGER,
+        audio_codec TEXT,
+
+        -- Video metadata
+        video_width INTEGER,
+        video_height INTEGER,
+        video_codec TEXT,
+        video_bitrate INTEGER,
+        video_fps REAL,
+
+        -- Image metadata
+        image_width INTEGER,
+        image_height INTEGER,
+        image_camera_make TEXT,
+        image_camera_model TEXT,
+        image_date_taken TEXT,
+        image_latitude REAL,
+        image_longitude REAL,
+
+        -- Timestamps
+        added_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+
+        -- Indexes for common queries
+        UNIQUE(file_path)
+      );
+    `);
+
+    // 2. Copy all data from old table to new
+    db.exec(`
+      INSERT INTO media_items_new
+      SELECT * FROM media_items;
+    `);
+
+    // 3. Drop old table
+    db.exec(`DROP TABLE media_items;`);
+
+    // 4. Rename new table to original name
+    db.exec(`ALTER TABLE media_items_new RENAME TO media_items;`);
+
+    // 5. Recreate indexes
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_media_items_source ON media_items(source);
+      CREATE INDEX IF NOT EXISTS idx_media_items_source_id ON media_items(source_id);
+      CREATE INDEX IF NOT EXISTS idx_media_items_media_type ON media_items(media_type);
+      CREATE INDEX IF NOT EXISTS idx_media_items_youtube_video_id ON media_items(youtube_video_id);
+      CREATE INDEX IF NOT EXISTS idx_media_items_added_at ON media_items(added_at DESC);
+    `);
+
+    // 6. Update schema version
+    db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('schema_version', '4', datetime('now'))").run();
+  });
+
+  migrate();
+  console.log('[db] Migration to schema v4 complete.');
 }
 
 export function getDb(): Database.Database {
