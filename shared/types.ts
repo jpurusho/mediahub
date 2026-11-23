@@ -183,7 +183,7 @@ export interface MediaItem {
   source: 'youtube' | 'local';
   sourceId: string | null;
   title: string;
-  mediaType: 'video' | 'audio' | 'image' | 'document';
+  mediaType: 'video' | 'audio' | 'image' | 'html' | 'document';
   filePath: string;
   fileSize: number;
   duration: number;
@@ -460,6 +460,7 @@ export interface ElectronAPI {
     checkTools: () => Promise<{ ytDlp: { installed: boolean; path: string; version?: string }; ffmpeg: { installed: boolean; path: string; version?: string } }>;
     getVideoFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
     getImageFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
+    getHTMLFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
     fileExists: (filePath: string) => Promise<boolean>;
     convertToMp4: (filePath: string) => Promise<{ success?: boolean; outputPath?: string; error?: string; message?: string }>;
     openInSystemPlayer: (filePath: string) => Promise<void>;

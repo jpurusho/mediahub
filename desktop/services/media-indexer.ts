@@ -17,6 +17,7 @@ const execAsync = promisify(exec);
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.m4v', '.flv', '.wmv', '.mpg', '.mpeg', '.3gp'];
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.opus', '.wma', '.alac'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff'];
+const HTML_EXTENSIONS = ['.html', '.htm'];
 
 // Folders to skip during scanning
 const SKIP_FOLDERS = new Set([
@@ -347,13 +348,14 @@ export class MediaIndexer extends EventEmitter {
   /**
    * Detect media type from file extension and MIME type
    */
-  async detectMediaType(filePath: string): Promise<'video' | 'audio' | 'image' | null> {
+  async detectMediaType(filePath: string): Promise<'video' | 'audio' | 'image' | 'html' | null> {
     const ext = path.extname(filePath).toLowerCase();
 
     // Quick extension check first (fast path)
     if (VIDEO_EXTENSIONS.includes(ext)) return 'video';
     if (AUDIO_EXTENSIONS.includes(ext)) return 'audio';
     if (IMAGE_EXTENSIONS.includes(ext)) return 'image';
+    if (HTML_EXTENSIONS.includes(ext)) return 'html';
 
     // Fallback: Use file-type library (reads file header)
     try {
@@ -363,6 +365,7 @@ export class MediaIndexer extends EventEmitter {
       if (type.mime.startsWith('video/')) return 'video';
       if (type.mime.startsWith('audio/')) return 'audio';
       if (type.mime.startsWith('image/')) return 'image';
+      if (type.mime === 'text/html') return 'html';
     } catch (error) {
       console.error(`[MediaIndexer] Failed to detect file type for ${filePath}:`, error);
     }
@@ -484,7 +487,8 @@ export class MediaIndexer extends EventEmitter {
           if (
             VIDEO_EXTENSIONS.includes(ext) ||
             AUDIO_EXTENSIONS.includes(ext) ||
-            IMAGE_EXTENSIONS.includes(ext)
+            IMAGE_EXTENSIONS.includes(ext) ||
+            HTML_EXTENSIONS.includes(ext)
           ) {
             files.push(fullPath);
           }

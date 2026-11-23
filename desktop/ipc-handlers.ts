@@ -1008,6 +1008,22 @@ export function registerIpcHandlers(): void {
     return { url: `http://localhost:${port}/image?path=${encodeURIComponent(filePath)}` };
   });
 
+  ipcMain.handle('app:getHTMLFileUrl', (_event, filePath: string) => {
+    const fs = require('fs');
+    // If filePath is relative (just filename), construct absolute path
+    if (!path.isAbsolute(filePath)) {
+      const outputDir = getOutputDir();
+      filePath = path.join(outputDir, filePath);
+    }
+    if (!fs.existsSync(filePath)) {
+      return { error: 'File not found. It may have been moved or deleted.' };
+    }
+    // Use file:// protocol for HTML files so relative resources (CSS, JS, images) work
+    // Convert to proper file URL format
+    const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
+    return { url: fileUrl };
+  });
+
   ipcMain.handle('app:fileExists', (_event, filePath: string) => {
     const fs = require('fs');
     // If filePath is relative (just filename), construct absolute path

@@ -340,7 +340,7 @@ function migrateToV3(): void {
 
           -- Common metadata
           title TEXT NOT NULL,
-          media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'document')),
+          media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'html', 'document')),
           file_path TEXT NOT NULL,
           file_size INTEGER DEFAULT 0,
           duration INTEGER DEFAULT 0,
@@ -1298,7 +1298,7 @@ export interface MediaItemRow {
   source: 'youtube' | 'local';
   sourceId: string | null;
   title: string;
-  mediaType: 'video' | 'audio' | 'image' | 'document';
+  mediaType: 'video' | 'audio' | 'image' | 'html' | 'document';
   filePath: string;
   fileSize: number;
   duration: number;
@@ -1361,7 +1361,7 @@ export function createMediaItem(item: {
   source: 'youtube' | 'local';
   sourceId: string;
   title: string;
-  mediaType: 'video' | 'audio' | 'image' | 'document';
+  mediaType: 'video' | 'audio' | 'image' | 'html' | 'document';
   filePath: string;
   fileSize?: number;
   duration?: number;

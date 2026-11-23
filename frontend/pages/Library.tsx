@@ -25,6 +25,7 @@ import OpenWithIcon from '@mui/icons-material/OpenWith';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
 import ImageViewer from '../components/ImageViewer/ImageViewer';
+import HTMLViewer from '../components/HTMLViewer/HTMLViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
 import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
@@ -81,10 +82,11 @@ export default function Library() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [transcriptStatus, setTranscriptStatus] = useState<Record<string, boolean>>({});
   const [source, setSource] = useState<'all' | 'youtube' | 'local'>('all');
-  const [mediaType, setMediaType] = useState<'all' | 'video' | 'audio' | 'image'>('all');
+  const [mediaType, setMediaType] = useState<'all' | 'video' | 'audio' | 'image' | 'html'>('all');
   const [indexingInProgress, setIndexingInProgress] = useState(false);
   const [indexingProgress, setIndexingProgress] = useState({ filesFound: 0, filesProcessed: 0, filesFailed: 0, currentFile: '', totalSize: 0 });
   const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
+  const [viewingHTML, setViewingHTML] = useState<LibraryItem | null>(null);
 
   useEffect(() => {
     loadLibrary();
@@ -243,13 +245,17 @@ export default function Library() {
   }
 
   // Helper to detect media type from file extension or format
-  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'unknown' {
+  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'unknown' {
     const ext = item.filePath ? item.filePath.split('.').pop()?.toLowerCase() : '';
     const format = item.format?.toLowerCase();
 
     // Check for image extensions
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg', 'tiff'];
     if (ext && imageExts.includes(ext)) return 'image';
+
+    // Check for HTML extensions
+    const htmlExts = ['html', 'htm'];
+    if (ext && htmlExts.includes(ext)) return 'html';
 
     // Check for audio extensions/formats
     const audioExts = ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'opus', 'wma'];
@@ -278,6 +284,8 @@ export default function Library() {
       const imageItems = sorted.filter(i => getItemMediaType(i) === 'image');
       const currentIndex = imageItems.findIndex(i => i.videoId === item.videoId);
       setViewingImages({ images: imageItems, currentIndex: Math.max(0, currentIndex) });
+    } else if (itemType === 'html') {
+      setViewingHTML(item);
     } else if (itemType === 'video' || itemType === 'audio') {
       setPlayingItem(item);
     } else {
@@ -506,6 +514,7 @@ export default function Library() {
               <MenuItem value="video">Video</MenuItem>
               <MenuItem value="audio">Audio</MenuItem>
               <MenuItem value="image">Image</MenuItem>
+              <MenuItem value="html">HTML</MenuItem>
               {/* Future: PDF, Markdown, PowerPoint, Word will be added here */}
             </Select>
           </FormControl>
@@ -696,6 +705,14 @@ export default function Library() {
           currentIndex={viewingImages.currentIndex}
           onClose={() => setViewingImages(null)}
           onNavigate={(index) => setViewingImages({ ...viewingImages, currentIndex: index })}
+        />
+      )}
+
+      {viewingHTML && (
+        <HTMLViewer
+          filePath={viewingHTML.filePath}
+          title={viewingHTML.title}
+          onClose={() => setViewingHTML(null)}
         />
       )}
 
