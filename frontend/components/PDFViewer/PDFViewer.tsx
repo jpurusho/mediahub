@@ -8,9 +8,6 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set worker path to local file (CSP compliant)
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-
 interface PDFViewerProps {
   filePath: string;
   title: string;
@@ -33,6 +30,9 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
       setError('');
 
       try {
+        // Set worker path to local file (CSP compliant) - must be set before loading PDF
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
         const result = await window.api.app.getPDFFileUrl(filePath);
 
         if (result.error) {
