@@ -87,6 +87,8 @@ export default function Library() {
   const [indexingProgress, setIndexingProgress] = useState({ filesFound: 0, filesProcessed: 0, filesFailed: 0, currentFile: '', totalSize: 0 });
   const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
   const [viewingHTML, setViewingHTML] = useState<LibraryItem | null>(null);
+  const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
+  const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
 
   useEffect(() => {
     loadLibrary();
@@ -195,6 +197,15 @@ export default function Library() {
     }
   }
 
+  async function loadIndexedFolders() {
+    try {
+      const folders = await window.api.indexedFolders.getAll();
+      setIndexedFolders(folders);
+    } catch (error) {
+      console.error('Failed to load indexed folders:', error);
+    }
+  }
+
   async function handleAddLocalFolder() {
     try {
       const folderPath = await window.api.app.selectDirectory();
@@ -206,8 +217,22 @@ export default function Library() {
       // Start scanning
       setIndexingInProgress(true);
       await window.api.media.scanFolder(folderPath, true);
+
+      // Reload folders list
+      loadIndexedFolders();
     } catch (error) {
       setSnackbarMessage(`Failed to add folder: ${(error as Error).message}`);
+    }
+  }
+
+  async function handleRemoveFolder(folderId: number) {
+    try {
+      await window.api.indexedFolders.delete(folderId);
+      setSnackbarMessage('Folder removed');
+      loadIndexedFolders();
+      loadLibrary(); // Refresh library
+    } catch (error) {
+      setSnackbarMessage(`Failed to remove folder: ${(error as Error).message}`);
     }
   }
 
@@ -457,6 +482,17 @@ export default function Library() {
             onClick={handleAddLocalFolder}
           >
             Add Local Folder
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FolderOpenIcon />}
+            onClick={() => {
+              loadIndexedFolders();
+              setManageFoldersOpen(true);
+            }}
+          >
+            Manage Folders
           </Button>
           {selected.size > 0 && (
             <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon />} onClick={handleDeleteClick}>
@@ -889,6 +925,46 @@ export default function Library() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => window.api.media.cancelIndexing()}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manage Folders Dialog */}
+      <Dialog open={manageFoldersOpen} onClose={() => setManageFoldersOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Manage Indexed Folders</DialogTitle>
+        <DialogContent>
+          {indexedFolders.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              No folders added yet. Click "Add Local Folder" to scan your media files.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {indexedFolders.map(folder => (
+                <Paper key={folder.id} sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <FolderOpenIcon color="primary" />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body1">{folder.path}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Last scanned: {folder.lastScannedAt ? new Date(folder.lastScannedAt).toLocaleString() : 'Never'}
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    color="error"
+                    onClick={() => {
+                      if (window.confirm(`Remove folder: ${folder.path}?\n\nThis will not delete files, only remove them from the library.`)) {
+                        handleRemoveFolder(folder.id);
+                      }
+                    }}
+                    title="Remove folder"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setManageFoldersOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 
