@@ -529,14 +529,14 @@ function migrateToV4(): void {
   console.log('[db] Running migration to schema v4 (HTML media type support)...');
 
   const migrate = db.transaction(() => {
-    // 1. Create new table with updated CHECK constraint
+    // 1. Create new table with updated CHECK constraint (matching original schema exactly)
     db.exec(`
       CREATE TABLE IF NOT EXISTS media_items_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        -- Source and identification
+        -- Source identification
         source TEXT NOT NULL CHECK(source IN ('youtube', 'local')),
-        source_id TEXT UNIQUE,
+        source_id TEXT,
 
         -- Common metadata
         title TEXT NOT NULL,
@@ -550,7 +550,7 @@ function migrateToV4(): void {
         thumbnail_url TEXT,
         thumbnail_generated_at TEXT,
 
-        -- YouTube-specific metadata
+        -- YouTube-specific (nullable for local files)
         youtube_video_id TEXT,
         youtube_channel TEXT,
         youtube_channel_id TEXT,
@@ -561,28 +561,20 @@ function migrateToV4(): void {
         youtube_published_at TEXT,
         youtube_downloaded_at TEXT,
 
-        -- Local file metadata
+        -- Local file metadata (nullable for YouTube)
         mime_type TEXT,
         file_extension TEXT,
         file_modified_at TEXT,
         file_created_at TEXT,
 
-        -- Audio metadata (ID3 tags, etc.)
+        -- Audio metadata (ID3 tags)
         audio_artist TEXT,
         audio_album TEXT,
         audio_year INTEGER,
         audio_genre TEXT,
         audio_bitrate INTEGER,
-        audio_codec TEXT,
 
-        -- Video metadata
-        video_width INTEGER,
-        video_height INTEGER,
-        video_codec TEXT,
-        video_bitrate INTEGER,
-        video_fps REAL,
-
-        -- Image metadata
+        -- Image metadata (EXIF)
         image_width INTEGER,
         image_height INTEGER,
         image_camera_make TEXT,
@@ -591,16 +583,23 @@ function migrateToV4(): void {
         image_latitude REAL,
         image_longitude REAL,
 
-        -- Timestamps
+        -- Video metadata
+        video_resolution TEXT,
+        video_codec TEXT,
+        video_bitrate INTEGER,
+        video_fps REAL,
+
+        -- Common fields
         added_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
+        last_accessed_at TEXT,
 
-        -- Indexes for common queries
-        UNIQUE(file_path)
+        -- Indexing
+        UNIQUE(source, source_id)
       );
     `);
 
-    // 2. Copy all data from old table to new
+    // 2. Copy all data from old table to new (column count now matches)
     db.exec(`
       INSERT INTO media_items_new
       SELECT * FROM media_items;
