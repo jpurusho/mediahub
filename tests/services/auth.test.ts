@@ -9,26 +9,33 @@ import * as database from '../../desktop/services/database';
 vi.mock('../../desktop/services/database', () => ({
   saveTokens: vi.fn(),
   getTokens: vi.fn(),
-  deleteTokens: vi.fn(),
+  clearTokens: vi.fn(),
   saveUserInfo: vi.fn(),
   getUserInfo: vi.fn(),
-  deleteUserInfo: vi.fn(),
+  clearUserInfo: vi.fn(),
   getSetting: vi.fn((key: string) => {
     if (key === 'google_client_id') return null;
     if (key === 'google_client_secret') return null;
     return null;
   }),
+  setSetting: vi.fn(),
   initDatabase: vi.fn(),
 }));
 
 // Mock Google OAuth
-vi.mock('google-auth-library', () => ({
-  OAuth2Client: vi.fn().mockImplementation(() => ({
-    setCredentials: vi.fn(),
-    getAccessToken: vi.fn().mockResolvedValue({ token: 'mock-token' }),
-    generateAuthUrl: vi.fn().mockReturnValue('https://accounts.google.com/auth'),
-  })),
-}));
+vi.mock('google-auth-library', () => {
+  return {
+    OAuth2Client: class MockOAuth2Client {
+      setCredentials = vi.fn();
+      getAccessToken = vi.fn().mockResolvedValue({ token: 'mock-token' });
+      generateAuthUrl = vi.fn().mockReturnValue('https://accounts.google.com/auth');
+      on = vi.fn();
+      once = vi.fn();
+      emit = vi.fn();
+      removeListener = vi.fn();
+    },
+  };
+});
 
 // Mock googleapis
 vi.mock('googleapis', () => ({
@@ -76,35 +83,42 @@ describe('GoogleAuthService', () => {
     });
   });
 
-  describe('getUser', () => {
-    it('should return user info when it exists', () => {
+  describe('getCurrentUser', () => {
+    it('should return user info when it exists in database', async () => {
       const mockUser = {
         email: 'test@example.com',
         name: 'Test User',
         picture: 'https://example.com/avatar.jpg',
       };
+      vi.mocked(database.getTokens).mockReturnValue({
+        access_token: 'mock-token',
+        refresh_token: 'mock-refresh',
+        token_type: 'Bearer',
+        expiry_date: Date.now() + 3600000,
+        scope: 'youtube',
+      });
       vi.mocked(database.getUserInfo).mockReturnValue(mockUser);
 
-      const user = authService.getUser();
+      const user = await authService.getCurrentUser();
 
       expect(user).toEqual(mockUser);
     });
 
-    it('should return null when user info does not exist', () => {
-      vi.mocked(database.getUserInfo).mockReturnValue(null);
+    it('should return null when no tokens exist', async () => {
+      vi.mocked(database.getTokens).mockReturnValue(null);
 
-      const user = authService.getUser();
+      const user = await authService.getCurrentUser();
 
       expect(user).toBeNull();
     });
   });
 
   describe('logout', () => {
-    it('should delete tokens and user info', async () => {
+    it('should clear tokens and user info', async () => {
       await authService.logout();
 
-      expect(database.deleteTokens).toHaveBeenCalled();
-      expect(database.deleteUserInfo).toHaveBeenCalled();
+      expect(database.clearTokens).toHaveBeenCalled();
+      expect(database.clearUserInfo).toHaveBeenCalled();
     });
   });
 

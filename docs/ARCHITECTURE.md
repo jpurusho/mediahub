@@ -1,8 +1,8 @@
-# ytd — Architecture Document
+# MediaHub — Architecture Document
 
 ## Overview
 
-ytd is a full-featured YouTube Downloader desktop application built with Electron, React, and TypeScript. It follows the same architecture as gsync (Google Drive Sync app) with a clear separation between main process services, IPC communication, and the React renderer.
+MediaHub is a comprehensive media library manager desktop application built with Electron, React, and TypeScript. It follows the same architecture as gsync (Google Drive Sync app) with a clear separation between main process services, IPC communication, and the React renderer.
 
 ## System Architecture
 

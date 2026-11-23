@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Grid, IconButton, Chip } from '@mui/material';
+import { Box, Typography, Paper, Grid, IconButton, Chip, Divider } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import StorageIcon from '@mui/icons-material/Storage';
 import TodayIcon from '@mui/icons-material/Today';
@@ -8,6 +8,11 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
+import AudiotrackIcon from '@mui/icons-material/Audiotrack';
+import ImageIcon from '@mui/icons-material/Image';
+import YouTubeIcon from '@mui/icons-material/YouTube';
+import ComputerIcon from '@mui/icons-material/Computer';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
 import YouTubePreview from '../components/YouTubePreview/YouTubePreview';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
@@ -15,6 +20,9 @@ import type { DownloadRecord, VideoInfo, LibraryItem } from '@shared/types';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({ totalItems: 0, totalSize: 0, downloadedCount: 0 });
+  const [mediaStats, setMediaStats] = useState<{ total: number; youtube: number; local: number; byType: Record<string, number> }>({
+    total: 0, youtube: 0, local: 0, byType: {}
+  });
   const [recent, setRecent] = useState<LibraryItem[]>([]);
   const [fileStatus, setFileStatus] = useState<Record<string, boolean>>({});
   const [playingRecord, setPlayingRecord] = useState<DownloadRecord | null>(null);
@@ -27,12 +35,14 @@ export default function DashboardPage() {
 
   async function loadData() {
     try {
-      const [libraryStats, recentItems] = await Promise.all([
+      const [libraryStats, recentItems, mediaStatsData] = await Promise.all([
         window.api.library.getStats(),
         window.api.library.getRecent(5),
+        window.api.media.getStats().catch(() => ({ total: 0, youtube: 0, local: 0, byType: {} })),
       ]);
       setStats(libraryStats);
       setRecent(recentItems);
+      setMediaStats(mediaStatsData);
 
       const statusMap: Record<string, boolean> = {};
       await Promise.all(recentItems.map(async (r) => {
@@ -66,8 +76,10 @@ export default function DashboardPage() {
             <Box display="flex" alignItems="center" gap={1.5}>
               <DownloadIcon color="primary" />
               <Box>
-                <Typography variant="h5" fontWeight={700}>{stats.totalItems}</Typography>
-                <Typography variant="caption" color="text.secondary">Library Videos</Typography>
+                <Typography variant="h5" fontWeight={700}>
+                  {mediaStats.total > 0 ? mediaStats.total : stats.totalItems}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">Total Media Items</Typography>
               </Box>
             </Box>
           </Paper>
@@ -75,10 +87,10 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={4}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
             <Box display="flex" alignItems="center" gap={1.5}>
-              <StorageIcon color="secondary" />
+              <YouTubeIcon sx={{ color: '#FF0000' }} />
               <Box>
-                <Typography variant="h5" fontWeight={700}>{formatSize(stats.totalSize)}</Typography>
-                <Typography variant="caption" color="text.secondary">Storage Used</Typography>
+                <Typography variant="h5" fontWeight={700}>{mediaStats.youtube}</Typography>
+                <Typography variant="caption" color="text.secondary">YouTube Downloads</Typography>
               </Box>
             </Box>
           </Paper>
@@ -86,15 +98,96 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={4}>
           <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
             <Box display="flex" alignItems="center" gap={1.5}>
-              <TodayIcon color="success" />
+              <ComputerIcon color="success" />
               <Box>
-                <Typography variant="h5" fontWeight={700}>{stats.downloadedCount}</Typography>
-                <Typography variant="caption" color="text.secondary">Downloaded</Typography>
+                <Typography variant="h5" fontWeight={700}>{mediaStats.local}</Typography>
+                <Typography variant="caption" color="text.secondary">Local Files</Typography>
               </Box>
             </Box>
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Media Library Breakdown */}
+      {mediaStats.total > 0 && (
+        <>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            Media Library
+          </Typography>
+          <Grid container spacing={2} sx={{ mb: 4 }}>
+            {/* Source Breakdown */}
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1.5, display: 'block' }}>
+                  BY SOURCE
+                </Typography>
+                <Box display="flex" flexDirection="column" gap={1}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <YouTubeIcon sx={{ fontSize: 18, color: '#FF0000' }} />
+                      <Typography variant="body2">YouTube</Typography>
+                    </Box>
+                    <Typography variant="body2" fontWeight={600}>{mediaStats.youtube}</Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <ComputerIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                      <Typography variant="body2">Local Files</Typography>
+                    </Box>
+                    <Typography variant="body2" fontWeight={600}>{mediaStats.local}</Typography>
+                  </Box>
+                  <Divider sx={{ my: 0.5 }} />
+                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Typography variant="body2" fontWeight={600}>Total</Typography>
+                    <Typography variant="body2" fontWeight={700} color="primary">{mediaStats.total}</Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Type Breakdown */}
+            <Grid item xs={12} sm={6}>
+              <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1.5, display: 'block' }}>
+                  BY TYPE
+                </Typography>
+                <Box display="flex" flexDirection="column" gap={1}>
+                  {mediaStats.byType.video > 0 && (
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <VideoLibraryIcon sx={{ fontSize: 18, color: 'secondary.main' }} />
+                        <Typography variant="body2">Videos</Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={600}>{mediaStats.byType.video}</Typography>
+                    </Box>
+                  )}
+                  {mediaStats.byType.audio > 0 && (
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <AudiotrackIcon sx={{ fontSize: 18, color: 'success.main' }} />
+                        <Typography variant="body2">Audio</Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={600}>{mediaStats.byType.audio}</Typography>
+                    </Box>
+                  )}
+                  {mediaStats.byType.image > 0 && (
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <ImageIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                        <Typography variant="body2">Images</Typography>
+                      </Box>
+                      <Typography variant="body2" fontWeight={600}>{mediaStats.byType.image}</Typography>
+                    </Box>
+                  )}
+                  {Object.keys(mediaStats.byType).length === 0 && (
+                    <Typography variant="body2" color="text.secondary">No media yet</Typography>
+                  )}
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        </>
+      )}
 
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
         <Typography variant="subtitle2" color="text.secondary">

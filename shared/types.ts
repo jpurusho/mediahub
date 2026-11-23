@@ -178,6 +178,78 @@ export interface LibraryItem {
   updatedAt: string;
 }
 
+export interface MediaItem {
+  id: number;
+  source: 'youtube' | 'local';
+  sourceId: string | null;
+  title: string;
+  mediaType: 'video' | 'audio' | 'image' | 'document';
+  filePath: string;
+  fileSize: number;
+  duration: number;
+  thumbnailPath: string | null;
+  thumbnailUrl: string | null;
+  thumbnailGeneratedAt: string | null;
+  // YouTube-specific
+  youtubeVideoId: string | null;
+  youtubeChannel: string | null;
+  youtubeChannelId: string | null;
+  youtubeUrl: string | null;
+  youtubeFormat: string | null;
+  youtubeQuality: string | null;
+  youtubeResolution: string | null;
+  youtubePublishedAt: string | null;
+  youtubeDownloadedAt: string | null;
+  // Local file metadata
+  mimeType: string | null;
+  fileExtension: string | null;
+  fileModifiedAt: string | null;
+  fileCreatedAt: string | null;
+  // Audio metadata (ID3 tags)
+  audioArtist: string | null;
+  audioAlbum: string | null;
+  audioYear: number | null;
+  audioGenre: string | null;
+  audioBitrate: number | null;
+  // Image metadata (EXIF)
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageCameraMake: string | null;
+  imageCameraModel: string | null;
+  imageDateTaken: string | null;
+  imageLatitude: number | null;
+  imageLongitude: number | null;
+  // Video metadata
+  videoResolution: string | null;
+  videoCodec: string | null;
+  videoBitrate: number | null;
+  videoFps: number | null;
+  // Common
+  addedAt: string;
+  updatedAt: string;
+  lastAccessedAt: string | null;
+}
+
+export interface IndexedFolder {
+  id: number;
+  path: string;
+  recursive: boolean;
+  lastScannedAt: string | null;
+  fileCount: number;
+  totalSize: number;
+  enabled: boolean;
+  addedAt: string;
+  updatedAt: string;
+}
+
+export interface IndexProgress {
+  filesFound: number;
+  filesProcessed: number;
+  filesFailed: number;
+  currentFile: string;
+  totalSize: number;
+}
+
 export interface LocalPlaylistVideoItem {
   videoId: string;
   title: string;
@@ -216,6 +288,7 @@ export interface Transcript {
   progress: number;
   createdAt: string;
   completedAt: string | null;
+  mediaItemId?: number;
 }
 
 export interface TranscriptSegment {
@@ -283,6 +356,43 @@ export interface ElectronAPI {
     getRecent: (limit: number) => Promise<LibraryItem[]>;
     getStats: () => Promise<{ totalItems: number; totalSize: number; downloadedCount: number }>;
   };
+  media: {
+    getAll: (opts?: { source?: 'youtube' | 'local'; mediaType?: 'video' | 'audio' | 'image' | 'document'; limit?: number; offset?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) => Promise<MediaItem[]>;
+    get: (id: number) => Promise<MediaItem | null>;
+    getByPath: (filePath: string) => Promise<MediaItem | null>;
+    getByYoutubeId: (videoId: string) => Promise<MediaItem | null>;
+    delete: (ids: number[]) => Promise<void>;
+    getStats: () => Promise<{ total: number; youtube: number; local: number; byType: Record<string, number> }>;
+    scanFolder: (folderPath: string, recursive?: boolean) => Promise<{ success: boolean }>;
+    indexFile: (filePath: string) => Promise<MediaItem | null>;
+    cancelIndexing: () => Promise<{ success: boolean }>;
+    getIndexingProgress: () => Promise<IndexProgress>;
+    onIndexingStarted: (callback: (data: { folderPath: string }) => void) => () => void;
+    onIndexingProgress: (callback: (progress: IndexProgress) => void) => () => void;
+    onIndexingCompleted: (callback: (data: { filesProcessed: number; filesFailed: number; duration: number }) => void) => () => void;
+    onIndexingError: (callback: (data: { error: string }) => void) => () => void;
+    onFileIndexed: (callback: (data: { filePath: string; mediaItem: MediaItem }) => void) => () => void;
+    onFileFailed: (callback: (data: { filePath: string; error: string }) => void) => () => void;
+  };
+  indexedFolders: {
+    add: (path: string, recursive?: boolean) => Promise<number>;
+    getAll: () => Promise<IndexedFolder[]>;
+    get: (id: number) => Promise<IndexedFolder | null>;
+    update: (id: number, updates: { lastScannedAt?: string; fileCount?: number; totalSize?: number; enabled?: boolean }) => Promise<void>;
+    delete: (id: number) => Promise<void>;
+  };
+  fileWatcher: {
+    getWatchedFolders: () => Promise<number[]>;
+    isWatching: (folderId: number) => Promise<boolean>;
+    getMaxWatchers: () => Promise<number>;
+    setMaxWatchers: (max: number) => Promise<{ success: boolean }>;
+    onFileAdded: (callback: (data: { filePath: string; folderId: number }) => void) => () => void;
+    onFileChanged: (callback: (data: { filePath: string; folderId: number }) => void) => () => void;
+    onFileRemoved: (callback: (data: { filePath: string; folderId: number }) => void) => () => void;
+    onWatcherStarted: (callback: (data: { folderId: number; folderPath: string }) => void) => () => void;
+    onWatcherStopped: (callback: (data: { folderId: number }) => void) => () => void;
+    onWatcherError: (callback: (data: { folderId: number; error: string }) => void) => () => void;
+  };
   transcripts: {
     start: (videoId: string, options?: TranscriptOptions) => Promise<number>;
     cancel: (videoId: string) => Promise<boolean>;
@@ -349,6 +459,7 @@ export interface ElectronAPI {
     onDownloadProgress: (callback: (data: { downloaded: number; total: number; percent: number }) => void) => () => void;
     checkTools: () => Promise<{ ytDlp: { installed: boolean; path: string; version?: string }; ffmpeg: { installed: boolean; path: string; version?: string } }>;
     getVideoFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
+    getImageFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
     fileExists: (filePath: string) => Promise<boolean>;
     convertToMp4: (filePath: string) => Promise<{ success?: boolean; outputPath?: string; error?: string; message?: string }>;
     openInSystemPlayer: (filePath: string) => Promise<void>;

@@ -69,16 +69,16 @@ export default function Login() {
         <Box sx={{ mb: 2 }}>
           <img
             src="./icon.png"
-            alt="ytd"
+            alt="MediaHub"
             style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </Box>
         <Typography variant="h4" fontWeight={700} gutterBottom>
-          YTD
+          MediaHub
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          YouTube Downloader
+          Comprehensive Media Library Manager
         </Typography>
 
         {error && (

@@ -225,7 +225,7 @@ export default function Sidebar({ currentPage, onPageChange, user, onLogout, que
               Downloaded! To install:
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem', lineHeight: 1.4 }}>
-              1. Quit ytd{'\n'}
+              1. Quit MediaHub{'\n'}
               2. Extract the .zip{'\n'}
               3. Replace ytd.app in /Applications{'\n'}
               4. Run: xattr -rc /Applications/ytd.app

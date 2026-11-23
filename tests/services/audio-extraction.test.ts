@@ -5,8 +5,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioExtractionService } from '../../desktop/services/audio-extraction';
 import * as fs from 'fs';
 
+// Mock electron
+vi.mock('electron', () => ({
+  app: {
+    isPackaged: false,
+    getAppPath: vi.fn(() => '/mock/app/path'),
+  },
+}));
+
 vi.mock('fs');
-vi.mock('child_process');
+vi.mock('child_process', () => {
+  const EventEmitter = require('events');
+  return {
+    exec: vi.fn(),
+    spawn: vi.fn(() => {
+      const mockProcess = new EventEmitter();
+      (mockProcess as any).stdout = new EventEmitter();
+      (mockProcess as any).stderr = new EventEmitter();
+      (mockProcess as any).kill = vi.fn();
+      // Don't emit 'close' immediately - let the test control it
+      return mockProcess;
+    }),
+  };
+});
 
 describe('AudioExtractionService', () => {
   let service: AudioExtractionService;

@@ -3,7 +3,7 @@ import { app } from 'electron';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import type { AuthTokens, UserInfo, QueueItem, DownloadRecord, DownloadRequest, LibraryItem, Transcript, TranscriptOptions, TranscriptSearchResult } from '../../shared/types';
+import type { AuthTokens, UserInfo, QueueItem, DownloadRecord, DownloadRequest, LibraryItem, MediaItem, IndexedFolder, Transcript, TranscriptOptions, TranscriptSearchResult } from '../../shared/types';
 
 // Database row types (what SQLite returns)
 interface DatabaseRow {
@@ -252,6 +252,9 @@ function runMigrations(): void {
   if (currentVersion < 2) {
     migrateToV2();
   }
+  if (currentVersion < 3) {
+    migrateToV3();
+  }
 }
 
 function migrateToV2(): void {
@@ -297,6 +300,220 @@ function migrateToV2(): void {
 
   migrate();
   console.log('[db] Migration to schema v2 complete.');
+}
+
+/**
+ * Migration Strategy for v3: Unified Media Library
+ *
+ * This migration transforms ytd from a YouTube-only tool into MediaHub - a comprehensive
+ * media library manager supporting both YouTube and local media files.
+ *
+ * Changes:
+ * 1. Create media_items table (unified storage for YouTube + local media)
+ * 2. Create indexed_folders table (track scanned local directories)
+ * 3. Migrate existing library data to media_items with source='youtube'
+ * 4. Add media_item_id column to transcripts for future local media support
+ * 5. Add indexes for performance
+ *
+ * Idempotency: Safe to run multiple times - checks for existing tables/columns
+ * Backward compatibility: Preserves library table and all existing data
+ */
+function migrateToV3(): void {
+  console.log('[db] Running migration to schema v3 (unified media library)...');
+
+  const migrate = db.transaction(() => {
+    // Check if media_items table already exists
+    const tableExists = db.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type='table' AND name='media_items'
+    `).get();
+
+    if (!tableExists) {
+      // 1. Create media_items table
+      db.exec(`
+        CREATE TABLE media_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+          -- Source identification
+          source TEXT NOT NULL CHECK(source IN ('youtube', 'local')),
+          source_id TEXT,
+
+          -- Common metadata
+          title TEXT NOT NULL,
+          media_type TEXT NOT NULL CHECK(media_type IN ('video', 'audio', 'image', 'document')),
+          file_path TEXT NOT NULL,
+          file_size INTEGER DEFAULT 0,
+          duration INTEGER DEFAULT 0,
+
+          -- Thumbnail
+          thumbnail_path TEXT,
+          thumbnail_url TEXT,
+          thumbnail_generated_at TEXT,
+
+          -- YouTube-specific (nullable for local files)
+          youtube_video_id TEXT,
+          youtube_channel TEXT,
+          youtube_channel_id TEXT,
+          youtube_url TEXT,
+          youtube_format TEXT,
+          youtube_quality TEXT,
+          youtube_resolution TEXT,
+          youtube_published_at TEXT,
+          youtube_downloaded_at TEXT,
+
+          -- Local file metadata (nullable for YouTube)
+          mime_type TEXT,
+          file_extension TEXT,
+          file_modified_at TEXT,
+          file_created_at TEXT,
+
+          -- Audio metadata (ID3 tags)
+          audio_artist TEXT,
+          audio_album TEXT,
+          audio_year INTEGER,
+          audio_genre TEXT,
+          audio_bitrate INTEGER,
+
+          -- Image metadata (EXIF)
+          image_width INTEGER,
+          image_height INTEGER,
+          image_camera_make TEXT,
+          image_camera_model TEXT,
+          image_date_taken TEXT,
+          image_latitude REAL,
+          image_longitude REAL,
+
+          -- Video metadata
+          video_resolution TEXT,
+          video_codec TEXT,
+          video_bitrate INTEGER,
+          video_fps REAL,
+
+          -- Common fields
+          added_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          last_accessed_at TEXT,
+
+          -- Indexing
+          UNIQUE(source, source_id)
+        );
+      `);
+      console.log('[db] Created media_items table');
+
+      // 2. Create indexed_folders table
+      db.exec(`
+        CREATE TABLE indexed_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          path TEXT NOT NULL UNIQUE,
+          recursive INTEGER DEFAULT 1,
+          last_scanned_at TEXT,
+          file_count INTEGER DEFAULT 0,
+          total_size INTEGER DEFAULT 0,
+          enabled INTEGER DEFAULT 1,
+          added_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      console.log('[db] Created indexed_folders table');
+
+      // 3. Create indexes for performance
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_media_items_source ON media_items(source);
+        CREATE INDEX IF NOT EXISTS idx_media_items_type ON media_items(media_type);
+        CREATE INDEX IF NOT EXISTS idx_media_items_path ON media_items(file_path);
+        CREATE INDEX IF NOT EXISTS idx_media_items_youtube_id ON media_items(youtube_video_id);
+        CREATE INDEX IF NOT EXISTS idx_media_items_updated ON media_items(updated_at);
+        CREATE INDEX IF NOT EXISTS idx_indexed_folders_path ON indexed_folders(path);
+      `);
+      console.log('[db] Created performance indexes');
+
+      // 4. Migrate existing library data to media_items
+      const libraryCount = (db.prepare('SELECT COUNT(*) as count FROM library').get() as any).count;
+      if (libraryCount > 0) {
+        db.exec(`
+          INSERT INTO media_items (
+            source,
+            source_id,
+            title,
+            media_type,
+            file_path,
+            file_size,
+            duration,
+            thumbnail_url,
+            youtube_video_id,
+            youtube_channel,
+            youtube_channel_id,
+            youtube_url,
+            youtube_format,
+            youtube_quality,
+            youtube_resolution,
+            youtube_published_at,
+            youtube_downloaded_at,
+            added_at,
+            updated_at
+          )
+          SELECT
+            'youtube' as source,
+            video_id as source_id,
+            title,
+            'video' as media_type,
+            COALESCE(file_path, '') as file_path,
+            file_size,
+            duration,
+            thumbnail_url,
+            video_id as youtube_video_id,
+            channel as youtube_channel,
+            channel_id as youtube_channel_id,
+            url as youtube_url,
+            format as youtube_format,
+            quality as youtube_quality,
+            resolution as youtube_resolution,
+            published_at as youtube_published_at,
+            downloaded_at as youtube_downloaded_at,
+            added_at,
+            updated_at
+          FROM library
+          WHERE video_id NOT IN (
+            SELECT source_id FROM media_items WHERE source = 'youtube'
+          )
+        `);
+        const migratedCount = (db.prepare('SELECT changes()').get() as any)['changes()'];
+        console.log(`[db] Migrated ${migratedCount} items from library to media_items`);
+      }
+    } else {
+      console.log('[db] media_items table already exists, skipping creation');
+    }
+
+    // 5. Add media_item_id column to transcripts if it doesn't exist
+    const transcriptCols = db.pragma('table_info(transcripts)') as any[];
+    const transcriptColNames = new Set(transcriptCols.map((c: ColumnInfo) => c.name));
+
+    if (!transcriptColNames.has('media_item_id')) {
+      db.exec('ALTER TABLE transcripts ADD COLUMN media_item_id INTEGER');
+      console.log('[db] Added media_item_id column to transcripts table');
+
+      // Populate media_item_id for existing transcripts
+      db.exec(`
+        UPDATE transcripts
+        SET media_item_id = (
+          SELECT id FROM media_items
+          WHERE media_items.youtube_video_id = transcripts.video_id
+          AND media_items.source = 'youtube'
+          LIMIT 1
+        )
+        WHERE media_item_id IS NULL
+        AND video_id IN (SELECT youtube_video_id FROM media_items WHERE source = 'youtube')
+      `);
+      const linkedCount = (db.prepare('SELECT changes()').get() as any)['changes()'];
+      console.log(`[db] Linked ${linkedCount} transcripts to media_items`);
+    }
+
+    // 6. Update schema version
+    db.prepare("INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES ('schema_version', '3', datetime('now'))").run();
+  });
+
+  migrate();
+  console.log('[db] Migration to schema v3 complete.');
 }
 
 export function getDb(): Database.Database {
@@ -1070,5 +1287,424 @@ function rowToTranscript(row: DatabaseRow): Transcript {
     progress: Number(row.progress || 0),
     createdAt: String(row.created_at),
     completedAt: row.completed_at ? String(row.completed_at) : null,
+    mediaItemId: row.media_item_id ? Number(row.media_item_id) : undefined,
+  };
+}
+
+// ─── Media Items helpers ───────────────────────────────────────────────────
+
+export interface MediaItemRow {
+  id: number;
+  source: 'youtube' | 'local';
+  sourceId: string | null;
+  title: string;
+  mediaType: 'video' | 'audio' | 'image' | 'document';
+  filePath: string;
+  fileSize: number;
+  duration: number;
+  thumbnailPath: string | null;
+  thumbnailUrl: string | null;
+  thumbnailGeneratedAt: string | null;
+  // YouTube-specific
+  youtubeVideoId: string | null;
+  youtubeChannel: string | null;
+  youtubeChannelId: string | null;
+  youtubeUrl: string | null;
+  youtubeFormat: string | null;
+  youtubeQuality: string | null;
+  youtubeResolution: string | null;
+  youtubePublishedAt: string | null;
+  youtubeDownloadedAt: string | null;
+  // Local file metadata
+  mimeType: string | null;
+  fileExtension: string | null;
+  fileModifiedAt: string | null;
+  fileCreatedAt: string | null;
+  // Audio metadata
+  audioArtist: string | null;
+  audioAlbum: string | null;
+  audioYear: number | null;
+  audioGenre: string | null;
+  audioBitrate: number | null;
+  // Image metadata
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageCameraMake: string | null;
+  imageCameraModel: string | null;
+  imageDateTaken: string | null;
+  imageLatitude: number | null;
+  imageLongitude: number | null;
+  // Video metadata
+  videoResolution: string | null;
+  videoCodec: string | null;
+  videoBitrate: number | null;
+  videoFps: number | null;
+  // Common
+  addedAt: string;
+  updatedAt: string;
+  lastAccessedAt: string | null;
+}
+
+export interface IndexedFolderRow {
+  id: number;
+  path: string;
+  recursive: boolean;
+  lastScannedAt: string | null;
+  fileCount: number;
+  totalSize: number;
+  enabled: boolean;
+  addedAt: string;
+  updatedAt: string;
+}
+
+export function createMediaItem(item: {
+  source: 'youtube' | 'local';
+  sourceId: string;
+  title: string;
+  mediaType: 'video' | 'audio' | 'image' | 'document';
+  filePath: string;
+  fileSize?: number;
+  duration?: number;
+  thumbnailUrl?: string;
+  // YouTube-specific
+  youtubeVideoId?: string;
+  youtubeChannel?: string;
+  youtubeChannelId?: string;
+  youtubeUrl?: string;
+  youtubeFormat?: string;
+  youtubeQuality?: string;
+  youtubeResolution?: string;
+  youtubePublishedAt?: string;
+  youtubeDownloadedAt?: string;
+  // Local file metadata
+  mimeType?: string;
+  fileExtension?: string;
+  fileModifiedAt?: string;
+  fileCreatedAt?: string;
+  // Audio metadata
+  audioArtist?: string;
+  audioAlbum?: string;
+  audioYear?: number;
+  audioGenre?: string;
+  audioBitrate?: number;
+  // Image metadata
+  imageWidth?: number;
+  imageHeight?: number;
+  imageCameraMake?: string;
+  imageCameraModel?: string;
+  imageDateTaken?: string;
+  imageLatitude?: number;
+  imageLongitude?: number;
+  // Video metadata
+  videoResolution?: string;
+  videoCodec?: string;
+  videoBitrate?: number;
+  videoFps?: number;
+}): number {
+  const stmt = db.prepare(`
+    INSERT INTO media_items (
+      source, source_id, title, media_type, file_path, file_size, duration,
+      thumbnail_url,
+      youtube_video_id, youtube_channel, youtube_channel_id, youtube_url,
+      youtube_format, youtube_quality, youtube_resolution, youtube_published_at, youtube_downloaded_at,
+      mime_type, file_extension, file_modified_at, file_created_at,
+      audio_artist, audio_album, audio_year, audio_genre, audio_bitrate,
+      image_width, image_height, image_camera_make, image_camera_model,
+      image_date_taken, image_latitude, image_longitude,
+      video_resolution, video_codec, video_bitrate, video_fps
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?,
+      ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?, ?
+    )
+  `);
+
+  const result = stmt.run(
+    item.source,
+    item.sourceId,
+    item.title,
+    item.mediaType,
+    item.filePath,
+    item.fileSize ?? 0,
+    item.duration ?? 0,
+    item.thumbnailUrl ?? null,
+    item.youtubeVideoId ?? null,
+    item.youtubeChannel ?? null,
+    item.youtubeChannelId ?? null,
+    item.youtubeUrl ?? null,
+    item.youtubeFormat ?? null,
+    item.youtubeQuality ?? null,
+    item.youtubeResolution ?? null,
+    item.youtubePublishedAt ?? null,
+    item.youtubeDownloadedAt ?? null,
+    item.mimeType ?? null,
+    item.fileExtension ?? null,
+    item.fileModifiedAt ?? null,
+    item.fileCreatedAt ?? null,
+    item.audioArtist ?? null,
+    item.audioAlbum ?? null,
+    item.audioYear ?? null,
+    item.audioGenre ?? null,
+    item.audioBitrate ?? null,
+    item.imageWidth ?? null,
+    item.imageHeight ?? null,
+    item.imageCameraMake ?? null,
+    item.imageCameraModel ?? null,
+    item.imageDateTaken ?? null,
+    item.imageLatitude ?? null,
+    item.imageLongitude ?? null,
+    item.videoResolution ?? null,
+    item.videoCodec ?? null,
+    item.videoBitrate ?? null,
+    item.videoFps ?? null
+  );
+
+  return result.lastInsertRowid as number;
+}
+
+export function getMediaItem(id: number): MediaItemRow | null {
+  const row = db.prepare('SELECT * FROM media_items WHERE id = ?').get(id) as any;
+  return row ? rowToMediaItem(row) : null;
+}
+
+export function getMediaItemByPath(filePath: string): MediaItemRow | null {
+  const row = db.prepare('SELECT * FROM media_items WHERE file_path = ?').get(filePath) as any;
+  return row ? rowToMediaItem(row) : null;
+}
+
+export function getMediaItemByYoutubeId(videoId: string): MediaItemRow | null {
+  const row = db.prepare('SELECT * FROM media_items WHERE youtube_video_id = ? AND source = ?').get(videoId, 'youtube') as any;
+  return row ? rowToMediaItem(row) : null;
+}
+
+export function getMediaItems(opts?: {
+  source?: 'youtube' | 'local';
+  mediaType?: 'video' | 'audio' | 'image' | 'document';
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}): MediaItemRow[] {
+  const limit = opts?.limit || 100;
+  const offset = opts?.offset || 0;
+  const sortBy = opts?.sortBy || 'updated_at';
+  const sortOrder = opts?.sortOrder || 'desc';
+
+  const validSorts = ['title', 'file_size', 'duration', 'added_at', 'updated_at', 'file_created_at', 'file_modified_at'];
+  const sortCol = validSorts.includes(sortBy) ? sortBy : 'updated_at';
+  const order = sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+  let query = 'SELECT * FROM media_items WHERE 1=1';
+  const params: (string | number)[] = [];
+
+  if (opts?.source) {
+    query += ' AND source = ?';
+    params.push(opts.source);
+  }
+
+  if (opts?.mediaType) {
+    query += ' AND media_type = ?';
+    params.push(opts.mediaType);
+  }
+
+  query += ` ORDER BY ${sortCol} ${order} LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  const rows = db.prepare(query).all(...params) as any[];
+  return rows.map(rowToMediaItem);
+}
+
+export function updateMediaItem(id: number, updates: Partial<Omit<MediaItemRow, 'id' | 'addedAt'>>): void {
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  const columnMap: Record<string, string> = {
+    title: 'title',
+    filePath: 'file_path',
+    fileSize: 'file_size',
+    duration: 'duration',
+    thumbnailPath: 'thumbnail_path',
+    thumbnailUrl: 'thumbnail_url',
+    mimeType: 'mime_type',
+    fileExtension: 'file_extension',
+    fileModifiedAt: 'file_modified_at',
+    fileCreatedAt: 'file_created_at',
+    audioArtist: 'audio_artist',
+    audioAlbum: 'audio_album',
+    audioYear: 'audio_year',
+    audioGenre: 'audio_genre',
+    audioBitrate: 'audio_bitrate',
+    imageWidth: 'image_width',
+    imageHeight: 'image_height',
+    imageCameraMake: 'image_camera_make',
+    imageCameraModel: 'image_camera_model',
+    imageDateTaken: 'image_date_taken',
+    imageLatitude: 'image_latitude',
+    imageLongitude: 'image_longitude',
+    videoResolution: 'video_resolution',
+    videoCodec: 'video_codec',
+    videoBitrate: 'video_bitrate',
+    videoFps: 'video_fps',
+    lastAccessedAt: 'last_accessed_at',
+  };
+
+  for (const [key, value] of Object.entries(updates)) {
+    const dbColumn = columnMap[key] || key;
+    fields.push(`${dbColumn} = ?`);
+    values.push(value);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push("updated_at = datetime('now')");
+  values.push(id);
+
+  db.prepare(`UPDATE media_items SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+}
+
+export function deleteMediaItems(ids: number[]): void {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => '?').join(',');
+  db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids);
+}
+
+export function getMediaItemStats(): { total: number; youtube: number; local: number; byType: Record<string, number> } {
+  const total = (db.prepare('SELECT COUNT(*) as count FROM media_items').get() as any).count;
+  const youtube = (db.prepare("SELECT COUNT(*) as count FROM media_items WHERE source = 'youtube'").get() as any).count;
+  const local = (db.prepare("SELECT COUNT(*) as count FROM media_items WHERE source = 'local'").get() as any).count;
+
+  const byTypeRows = db.prepare('SELECT media_type, COUNT(*) as count FROM media_items GROUP BY media_type').all() as any[];
+  const byType: Record<string, number> = {};
+  for (const row of byTypeRows) {
+    byType[row.media_type] = row.count;
+  }
+
+  return { total, youtube, local, byType };
+}
+
+function rowToMediaItem(row: DatabaseRow): MediaItemRow {
+  return {
+    id: Number(row.id),
+    source: String(row.source) as 'youtube' | 'local',
+    sourceId: row.source_id ? String(row.source_id) : null,
+    title: String(row.title),
+    mediaType: String(row.media_type) as 'video' | 'audio' | 'image' | 'document',
+    filePath: String(row.file_path),
+    fileSize: Number(row.file_size) || 0,
+    duration: Number(row.duration) || 0,
+    thumbnailPath: row.thumbnail_path ? String(row.thumbnail_path) : null,
+    thumbnailUrl: row.thumbnail_url ? String(row.thumbnail_url) : null,
+    thumbnailGeneratedAt: row.thumbnail_generated_at ? String(row.thumbnail_generated_at) : null,
+    youtubeVideoId: row.youtube_video_id ? String(row.youtube_video_id) : null,
+    youtubeChannel: row.youtube_channel ? String(row.youtube_channel) : null,
+    youtubeChannelId: row.youtube_channel_id ? String(row.youtube_channel_id) : null,
+    youtubeUrl: row.youtube_url ? String(row.youtube_url) : null,
+    youtubeFormat: row.youtube_format ? String(row.youtube_format) : null,
+    youtubeQuality: row.youtube_quality ? String(row.youtube_quality) : null,
+    youtubeResolution: row.youtube_resolution ? String(row.youtube_resolution) : null,
+    youtubePublishedAt: row.youtube_published_at ? String(row.youtube_published_at) : null,
+    youtubeDownloadedAt: row.youtube_downloaded_at ? String(row.youtube_downloaded_at) : null,
+    mimeType: row.mime_type ? String(row.mime_type) : null,
+    fileExtension: row.file_extension ? String(row.file_extension) : null,
+    fileModifiedAt: row.file_modified_at ? String(row.file_modified_at) : null,
+    fileCreatedAt: row.file_created_at ? String(row.file_created_at) : null,
+    audioArtist: row.audio_artist ? String(row.audio_artist) : null,
+    audioAlbum: row.audio_album ? String(row.audio_album) : null,
+    audioYear: row.audio_year ? Number(row.audio_year) : null,
+    audioGenre: row.audio_genre ? String(row.audio_genre) : null,
+    audioBitrate: row.audio_bitrate ? Number(row.audio_bitrate) : null,
+    imageWidth: row.image_width ? Number(row.image_width) : null,
+    imageHeight: row.image_height ? Number(row.image_height) : null,
+    imageCameraMake: row.image_camera_make ? String(row.image_camera_make) : null,
+    imageCameraModel: row.image_camera_model ? String(row.image_camera_model) : null,
+    imageDateTaken: row.image_date_taken ? String(row.image_date_taken) : null,
+    imageLatitude: row.image_latitude ? Number(row.image_latitude) : null,
+    imageLongitude: row.image_longitude ? Number(row.image_longitude) : null,
+    videoResolution: row.video_resolution ? String(row.video_resolution) : null,
+    videoCodec: row.video_codec ? String(row.video_codec) : null,
+    videoBitrate: row.video_bitrate ? Number(row.video_bitrate) : null,
+    videoFps: row.video_fps ? Number(row.video_fps) : null,
+    addedAt: String(row.added_at),
+    updatedAt: String(row.updated_at),
+    lastAccessedAt: row.last_accessed_at ? String(row.last_accessed_at) : null,
+  };
+}
+
+// ─── Indexed Folders helpers ───────────────────────────────────────────────
+
+export function addIndexedFolder(path: string, recursive: boolean = true): number {
+  const stmt = db.prepare(`
+    INSERT INTO indexed_folders (path, recursive)
+    VALUES (?, ?)
+  `);
+  const result = stmt.run(path, recursive ? 1 : 0);
+  return result.lastInsertRowid as number;
+}
+
+export function getIndexedFolder(id: number): IndexedFolderRow | null {
+  const row = db.prepare('SELECT * FROM indexed_folders WHERE id = ?').get(id) as any;
+  return row ? rowToIndexedFolder(row) : null;
+}
+
+export function getIndexedFolders(): IndexedFolderRow[] {
+  const rows = db.prepare('SELECT * FROM indexed_folders ORDER BY added_at DESC').all() as any[];
+  return rows.map(rowToIndexedFolder);
+}
+
+export function updateIndexedFolder(id: number, updates: {
+  lastScannedAt?: string;
+  fileCount?: number;
+  totalSize?: number;
+  enabled?: boolean;
+}): void {
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  if (updates.lastScannedAt !== undefined) {
+    fields.push('last_scanned_at = ?');
+    values.push(updates.lastScannedAt);
+  }
+  if (updates.fileCount !== undefined) {
+    fields.push('file_count = ?');
+    values.push(updates.fileCount);
+  }
+  if (updates.totalSize !== undefined) {
+    fields.push('total_size = ?');
+    values.push(updates.totalSize);
+  }
+  if (updates.enabled !== undefined) {
+    fields.push('enabled = ?');
+    values.push(updates.enabled ? 1 : 0);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push("updated_at = datetime('now')");
+  values.push(id);
+
+  db.prepare(`UPDATE indexed_folders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+}
+
+export function deleteIndexedFolder(id: number): void {
+  db.prepare('DELETE FROM indexed_folders WHERE id = ?').run(id);
+}
+
+function rowToIndexedFolder(row: DatabaseRow): IndexedFolderRow {
+  return {
+    id: Number(row.id),
+    path: String(row.path),
+    recursive: Boolean(row.recursive),
+    lastScannedAt: row.last_scanned_at ? String(row.last_scanned_at) : null,
+    fileCount: Number(row.file_count) || 0,
+    totalSize: Number(row.total_size) || 0,
+    enabled: Boolean(row.enabled),
+    addedAt: String(row.added_at),
+    updatedAt: String(row.updated_at),
   };
 }

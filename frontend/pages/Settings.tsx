@@ -326,7 +326,7 @@ export default function Settings() {
       <Paper sx={{ p: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
         <Typography variant="subtitle2" sx={{ mb: 1.5 }}>About</Typography>
         <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-          <Typography variant="body2">ytd v{version}</Typography>
+          <Typography variant="body2">MediaHub v{version}</Typography>
           <Button
             size="small"
             variant="outlined"
@@ -420,11 +420,11 @@ export default function Settings() {
               Downloaded! To install:
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.6 }}>
-              1. Quit ytd<br/>
+              1. Quit MediaHub<br/>
               2. Extract the .zip in Downloads<br/>
               3. Replace ytd.app in /Applications<br/>
               4. Run: xattr -rc /Applications/ytd.app<br/>
-              5. Open ytd
+              5. Open MediaHub
             </Typography>
             <Typography
               variant="caption"

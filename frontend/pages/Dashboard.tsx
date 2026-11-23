@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import Sidebar, { type Page } from '../components/Layout/Sidebar';
+import StatusBar from '../components/StatusBar/StatusBar';
 import DashboardPage from './DashboardPage';
 import Search from './Search';
 import Browse from './Browse';
@@ -52,18 +53,21 @@ export default function Dashboard() {
   }
 
   return (
-    <Box display="flex" height="100vh">
-      <Sidebar
-        currentPage={page}
-        onPageChange={(p) => { setPage(p); setSelectedPlaylistId(null); }}
-        user={user!}
-        onLogout={logout}
-        queueCount={queueCount}
-        onSelectPlaylist={handleSelectPlaylist}
-      />
-      <Box flex={1} overflow="hidden" pt="52px">
-        {renderPage()}
+    <Box display="flex" flexDirection="column" height="100vh">
+      <Box display="flex" flex={1} overflow="hidden">
+        <Sidebar
+          currentPage={page}
+          onPageChange={(p) => { setPage(p); setSelectedPlaylistId(null); }}
+          user={user!}
+          onLogout={logout}
+          queueCount={queueCount}
+          onSelectPlaylist={handleSelectPlaylist}
+        />
+        <Box flex={1} overflow="hidden" pt="52px">
+          {renderPage()}
+        </Box>
       </Box>
+      <StatusBar currentPage={page} />
     </Box>
   );
 }

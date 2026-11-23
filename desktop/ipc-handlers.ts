@@ -17,10 +17,14 @@ import {
   addPlaylistItem, removePlaylistItem, getPlaylistItems, reorderPlaylistItem,
   getLibraryItems, getLibraryItem, deleteLibraryItems, getRecentLibraryItems, getLibraryStats,
   upsertLibraryItem, toRelativePath,
+  getMediaItems, getMediaItem, getMediaItemByPath, getMediaItemByYoutubeId, deleteMediaItems, getMediaItemStats,
+  getIndexedFolders, getIndexedFolder, addIndexedFolder, updateIndexedFolder, deleteIndexedFolder,
 } from './services/database';
 import { SyncManager } from './services/sync/sync-manager';
 import { transcriptionQueueManager } from './services/transcription-queue-manager';
 import { claudeAnalysisService } from './services/claude-analysis';
+import { indexer } from './services/media-indexer';
+import { fileWatcher } from './services/file-watcher';
 import type { DownloadRequest, LocalPlaylistVideoItem, TranscriptOptions } from '../shared/types';
 import type { IncomingMessage } from 'http';
 import {
@@ -422,6 +426,254 @@ export function registerIpcHandlers(): void {
     return getLibraryStats();
   });
 
+  // ─── Media Items ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle('media:getAll', (_event, opts?: {
+    source?: 'youtube' | 'local';
+    mediaType?: 'video' | 'audio' | 'image' | 'document';
+    limit?: number;
+    offset?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) => {
+    return getMediaItems(opts);
+  });
+
+  ipcMain.handle('media:get', (_event, id: number) => {
+    return getMediaItem(id);
+  });
+
+  ipcMain.handle('media:getByPath', (_event, filePath: string) => {
+    return getMediaItemByPath(filePath);
+  });
+
+  ipcMain.handle('media:getByYoutubeId', (_event, videoId: string) => {
+    return getMediaItemByYoutubeId(videoId);
+  });
+
+  ipcMain.handle('media:delete', (_event, ids: number[]) => {
+    deleteMediaItems(ids);
+  });
+
+  ipcMain.handle('media:getStats', () => {
+    return getMediaItemStats();
+  });
+
+  // ─── Indexed Folders ─────────────────────────────────────────────────────────
+
+  ipcMain.handle('indexedFolders:add', async (_event, folderPath: string, recursive?: boolean) => {
+    const folderId = addIndexedFolder(folderPath, recursive);
+
+    // Start watching the folder (it's enabled by default)
+    try {
+      await fileWatcher.watchFolder(folderId, folderPath, recursive ?? true);
+    } catch (error: any) {
+      logger.warn('[IPC] Failed to start file watcher for new folder', {
+        folderId,
+        folderPath,
+        error: error.message
+      });
+    }
+
+    return folderId;
+  });
+
+  ipcMain.handle('indexedFolders:getAll', () => {
+    return getIndexedFolders();
+  });
+
+  ipcMain.handle('indexedFolders:get', (_event, id: number) => {
+    return getIndexedFolder(id);
+  });
+
+  ipcMain.handle('indexedFolders:update', async (_event, id: number, updates: {
+    lastScannedAt?: string;
+    fileCount?: number;
+    totalSize?: number;
+    enabled?: boolean;
+  }) => {
+    updateIndexedFolder(id, updates);
+
+    // If enabled status changed, start or stop watcher
+    if (updates.enabled !== undefined) {
+      const folder = getIndexedFolder(id);
+      if (!folder) return;
+
+      try {
+        if (updates.enabled) {
+          await fileWatcher.enableFolder(id, folder.path, folder.recursive);
+        } else {
+          await fileWatcher.disableFolder(id);
+        }
+      } catch (error: any) {
+        logger.warn('[IPC] Failed to update file watcher for folder', {
+          id,
+          enabled: updates.enabled,
+          error: error.message
+        });
+      }
+    }
+  });
+
+  ipcMain.handle('indexedFolders:delete', async (_event, id: number) => {
+    // Stop watching before deleting
+    try {
+      await fileWatcher.unwatchFolder(id);
+    } catch (error: any) {
+      logger.warn('[IPC] Failed to stop file watcher for deleted folder', {
+        id,
+        error: error.message
+      });
+    }
+
+    deleteIndexedFolder(id);
+  });
+
+  // ─── File Watcher ────────────────────────────────────────────────────────────
+
+  ipcMain.handle('fileWatcher:getWatchedFolders', () => {
+    return fileWatcher.getWatchedFolders();
+  });
+
+  ipcMain.handle('fileWatcher:isWatching', (_event, folderId: number) => {
+    return fileWatcher.isWatching(folderId);
+  });
+
+  ipcMain.handle('fileWatcher:getMaxWatchers', () => {
+    return fileWatcher.getMaxWatchers();
+  });
+
+  ipcMain.handle('fileWatcher:setMaxWatchers', (_event, max: number) => {
+    fileWatcher.setMaxWatchers(max);
+    return { success: true };
+  });
+
+  // ─── Media Indexing ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('media:scanFolder', async (_event, folderPath: string, recursive?: boolean) => {
+    await indexer.scanFolder(folderPath, recursive ?? true);
+    return { success: true };
+  });
+
+  ipcMain.handle('media:indexFile', async (_event, filePath: string) => {
+    return await indexer.indexFile(filePath);
+  });
+
+  ipcMain.handle('media:cancelIndexing', () => {
+    indexer.cancel();
+    return { success: true };
+  });
+
+  ipcMain.handle('media:getIndexingProgress', () => {
+    return indexer.getProgress();
+  });
+
+  // Set up media indexer event forwarding
+  const forwardIndexerEvents = () => {
+    indexer.on('indexing-started', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:indexing-started', data);
+        }
+      }
+    });
+
+    indexer.on('indexing-progress', (progress) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:indexing-progress', progress);
+        }
+      }
+    });
+
+    indexer.on('indexing-completed', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:indexing-completed', data);
+        }
+      }
+    });
+
+    indexer.on('indexing-error', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:indexing-error', data);
+        }
+      }
+    });
+
+    indexer.on('file-indexed', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:file-indexed', data);
+        }
+      }
+    });
+
+    indexer.on('file-failed', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('media:file-failed', data);
+        }
+      }
+    });
+  };
+
+  // Set up file watcher event forwarding
+  const forwardFileWatcherEvents = () => {
+    fileWatcher.on('file-added', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:file-added', data);
+        }
+      }
+    });
+
+    fileWatcher.on('file-changed', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:file-changed', data);
+        }
+      }
+    });
+
+    fileWatcher.on('file-removed', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:file-removed', data);
+        }
+      }
+    });
+
+    fileWatcher.on('watcher-started', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:watcher-started', data);
+        }
+      }
+    });
+
+    fileWatcher.on('watcher-stopped', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:watcher-stopped', data);
+        }
+      }
+    });
+
+    fileWatcher.on('watcher-error', (data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('fileWatcher:watcher-error', data);
+        }
+      }
+    });
+  };
+
+  // Initialize event forwarding
+  forwardIndexerEvents();
+  forwardFileWatcherEvents();
+
   // ─── Transcripts ─────────────────────────────────────────────────────────────
 
   ipcMain.handle('transcripts:start', async (_event, videoId: string, options?: TranscriptOptions) => {
@@ -737,6 +989,23 @@ export function registerIpcHandlers(): void {
     const isDev = !require('electron').app.isPackaged;
     const port = isDev ? '5173' : require('./index').getProdServerPort();
     return { url: `http://localhost:${port}/video?path=${encodeURIComponent(filePath)}` };
+  });
+
+  ipcMain.handle('app:getImageFileUrl', (_event, filePath: string) => {
+    const fs = require('fs');
+    // If filePath is relative (just filename), construct absolute path
+    if (!path.isAbsolute(filePath)) {
+      const outputDir = getOutputDir();
+      filePath = path.join(outputDir, filePath);
+    }
+    if (!fs.existsSync(filePath)) {
+      return { error: 'File not found. It may have been moved or deleted.' };
+    }
+    // Use HTTP server for image serving
+    // Dev: Vite on 5173, Prod: HTTP server on dynamic port
+    const isDev = !require('electron').app.isPackaged;
+    const port = isDev ? '5173' : require('./index').getProdServerPort();
+    return { url: `http://localhost:${port}/image?path=${encodeURIComponent(filePath)}` };
   });
 
   ipcMain.handle('app:fileExists', (_event, filePath: string) => {

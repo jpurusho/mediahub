@@ -1,6 +1,6 @@
-# ytd — YouTube Downloader
+# MediaHub
 
-A full-featured YouTube downloader desktop app for macOS. Browse your playlists and subscriptions, search videos, preview before downloading, and manage a local media library — all with a clean native interface.
+A comprehensive media library manager for macOS. Browse your YouTube playlists and subscriptions, search videos, preview before downloading, manage a local media library, and organize your content — all with a clean native interface.
 
 ## Features
 

@@ -5,6 +5,7 @@ import {
   Chip, Checkbox, TableSortLabel, Dialog, DialogTitle, DialogContent,
   DialogActions, FormControlLabel, Menu, MenuItem, ListItemIcon, ListItemText,
   Popover, Grid, Paper, ToggleButtonGroup, ToggleButton, Snackbar, Divider,
+  LinearProgress, Select, FormControl,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -21,11 +22,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import SubtitlesIcon from '@mui/icons-material/Subtitles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenWithIcon from '@mui/icons-material/OpenWith';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
+import ImageViewer from '../components/ImageViewer/ImageViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
-import type { LibraryItem, DownloadRecord, VideoInfo } from '@shared/types';
+import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
-type SortField = 'title' | 'channel' | 'format' | 'fileSize' | 'resolution' | 'downloadedAt' | 'addedAt' | 'duration';
+type SortField = 'title' | 'channel' | 'format' | 'fileSize' | 'resolution' | 'downloadedAt' | 'addedAt' | 'duration' | 'filePath';
 type SortOrder = 'asc' | 'desc';
 
 interface ColumnDef {
@@ -43,6 +46,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'duration', label: 'Duration', defaultVisible: false },
   { id: 'downloadedAt', label: 'Downloaded', defaultVisible: true },
   { id: 'addedAt', label: 'Added', defaultVisible: false },
+  { id: 'filePath', label: 'Path', defaultVisible: false },
 ];
 
 function loadVisibleColumns(): Set<SortField> {
@@ -76,10 +80,19 @@ export default function Library() {
   const [renameValue, setRenameValue] = useState('');
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [transcriptStatus, setTranscriptStatus] = useState<Record<string, boolean>>({});
+  const [source, setSource] = useState<'all' | 'youtube' | 'local'>('all');
+  const [mediaType, setMediaType] = useState<'all' | 'video' | 'audio' | 'image'>('all');
+  const [indexingInProgress, setIndexingInProgress] = useState(false);
+  const [indexingProgress, setIndexingProgress] = useState({ filesFound: 0, filesProcessed: 0, filesFailed: 0, currentFile: '', totalSize: 0 });
+  const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
 
   useEffect(() => {
     loadLibrary();
   }, []);
+
+  useEffect(() => {
+    loadLibrary();
+  }, [source, mediaType]);
 
   useEffect(() => {
     // Check transcript status for all items
@@ -100,10 +113,100 @@ export default function Library() {
     }
   }, [items]);
 
+  useEffect(() => {
+    // Set up media indexing event listeners
+    const cleanupStarted = window.api.media.onIndexingStarted((data) => {
+      setIndexingInProgress(true);
+      setSnackbarMessage(`Indexing started: ${data.folderPath}`);
+    });
+
+    const cleanupProgress = window.api.media.onIndexingProgress((progress) => {
+      setIndexingProgress(progress);
+    });
+
+    const cleanupCompleted = window.api.media.onIndexingCompleted((data) => {
+      setIndexingInProgress(false);
+      setSnackbarMessage(`Indexing completed: ${data.filesProcessed} files processed, ${data.filesFailed} failed`);
+      loadLibrary(); // Refresh list
+    });
+
+    const cleanupError = window.api.media.onIndexingError((data) => {
+      setIndexingInProgress(false);
+      setSnackbarMessage(`Indexing error: ${data.error}`);
+    });
+
+    return () => {
+      cleanupStarted();
+      cleanupProgress();
+      cleanupCompleted();
+      cleanupError();
+    };
+  }, []);
+
   async function loadLibrary() {
-    const data = await window.api.library.getAll({ limit: 1000 });
-    setItems(data);
-    setSelected(new Set());
+    try {
+      // Always use the unified media API
+      const opts: any = {
+        limit: 1000,
+        sortBy: sortField,
+        sortOrder: sortOrder,
+      };
+
+      // Apply source filter (youtube/local)
+      if (source !== 'all') {
+        opts.source = source;
+      }
+
+      // Apply media type filter (video/audio/image)
+      if (mediaType !== 'all') {
+        opts.mediaType = mediaType;
+      }
+
+      const mediaItems = await window.api.media.getAll(opts);
+
+      // Convert MediaItem[] to LibraryItem[] format for compatibility
+      const libraryItems: LibraryItem[] = mediaItems.map(m => ({
+        videoId: m.youtubeVideoId || m.sourceId || `local-${m.id}`,
+        title: m.title,
+        channel: m.youtubeChannel || 'Local File',
+        channelId: m.youtubeChannelId,
+        thumbnailUrl: m.thumbnailUrl || m.thumbnailPath,
+        url: m.youtubeUrl || `file://${m.filePath}`,
+        format: m.youtubeFormat || m.fileExtension?.replace('.', ''),
+        quality: m.youtubeQuality,
+        resolution: m.youtubeResolution || m.videoResolution,
+        filePath: m.filePath,
+        fileSize: m.fileSize,
+        duration: m.duration,
+        publishedAt: m.youtubePublishedAt,
+        downloadedAt: m.youtubeDownloadedAt,
+        addedAt: m.addedAt,
+        updatedAt: m.updatedAt,
+      }));
+
+      setItems(libraryItems);
+      setSelected(new Set());
+    } catch (error) {
+      console.error('Failed to load library:', error);
+      setSnackbarMessage('Failed to load library');
+      setItems([]);
+    }
+  }
+
+  async function handleAddLocalFolder() {
+    try {
+      const folderPath = await window.api.app.selectDirectory();
+      if (!folderPath) return;
+
+      // Add to indexed folders
+      await window.api.indexedFolders.add(folderPath, true);
+
+      // Start scanning
+      setIndexingInProgress(true);
+      await window.api.media.scanFolder(folderPath, true);
+    } catch (error) {
+      setSnackbarMessage(`Failed to add folder: ${(error as Error).message}`);
+    }
   }
 
   function handleDeleteClick() {
@@ -139,8 +242,59 @@ export default function Library() {
     setMenuAnchor(null);
   }
 
+  // Helper to detect media type from file extension or format
+  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'unknown' {
+    const ext = item.filePath ? item.filePath.split('.').pop()?.toLowerCase() : '';
+    const format = item.format?.toLowerCase();
+
+    // Check for image extensions
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'svg', 'tiff'];
+    if (ext && imageExts.includes(ext)) return 'image';
+
+    // Check for audio extensions/formats
+    const audioExts = ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'opus', 'wma'];
+    if (ext && audioExts.includes(ext)) return 'audio';
+    if (format && audioExts.includes(format)) return 'audio';
+
+    // Check for video extensions/formats
+    const videoExts = ['mp4', 'mkv', 'webm', 'avi', 'mov', 'm4v', 'flv', 'wmv', 'mpg', 'mpeg'];
+    if (ext && videoExts.includes(ext)) return 'video';
+    if (format && videoExts.includes(format)) return 'video';
+
+    return 'unknown';
+  }
+
+  // Handle playing an item (shows appropriate viewer based on media type)
+  function handlePlayItem(item: LibraryItem) {
+    if (!item.filePath) {
+      setSnackbarMessage('File path not available');
+      return;
+    }
+
+    const itemType = getItemMediaType(item);
+
+    if (itemType === 'image') {
+      // Find all images in current filtered view
+      const imageItems = sorted.filter(i => getItemMediaType(i) === 'image');
+      const currentIndex = imageItems.findIndex(i => i.videoId === item.videoId);
+      setViewingImages({ images: imageItems, currentIndex: Math.max(0, currentIndex) });
+    } else if (itemType === 'video' || itemType === 'audio') {
+      setPlayingItem(item);
+    } else {
+      setSnackbarMessage('This file type is not supported for preview');
+    }
+  }
+
   function handleCopyURL() {
     if (!menuItem) return;
+
+    // Don't try to copy YouTube URL for local files
+    if (menuItem.videoId.startsWith('local-')) {
+      setSnackbarMessage('This is a local file, not a YouTube video');
+      setMenuAnchor(null);
+      return;
+    }
+
     const url = `https://www.youtube.com/watch?v=${menuItem.videoId}`;
     navigator.clipboard.writeText(url);
     setSnackbarMessage('Video URL copied to clipboard');
@@ -220,6 +374,7 @@ export default function Library() {
       case 'duration': cmp = a.duration - b.duration; break;
       case 'downloadedAt': cmp = (a.downloadedAt || '').localeCompare(b.downloadedAt || ''); break;
       case 'addedAt': cmp = a.addedAt.localeCompare(b.addedAt); break;
+      case 'filePath': cmp = (a.filePath || '').localeCompare(b.filePath || ''); break;
     }
     return sortOrder === 'asc' ? cmp : -cmp;
   });
@@ -282,11 +437,19 @@ export default function Library() {
           Library
           {items.length > 0 && (
             <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-              ({items.length} videos)
+              ({items.length} {mediaType === 'all' ? 'items' : `${mediaType}s`})
             </Typography>
           )}
         </Typography>
         <Box display="flex" gap={1}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CreateNewFolderIcon />}
+            onClick={handleAddLocalFolder}
+          >
+            Add Local Folder
+          </Button>
           {selected.size > 0 && (
             <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon />} onClick={handleDeleteClick}>
               Delete {selected.size} selected
@@ -295,40 +458,89 @@ export default function Library() {
         </Box>
       </Box>
 
-      {items.length > 0 && (
-        <Box display="flex" gap={1} mb={2} alignItems="center">
-          <TextField
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter by title or channel..."
-            size="small"
-            fullWidth
-            InputProps={{
-              startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-            }}
-          />
+      {/* Always show filters if user has ever added content */}
+      <Box display="flex" gap={1} mb={2} alignItems="center" flexWrap="wrap">
+        <TextField
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by title or channel..."
+          size="small"
+          sx={{ flex: 1, minWidth: 200 }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+          }}
+        />
+
+        {/* Source Filter */}
+        <Box display="flex" gap={0.5} alignItems="center">
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+            Source:
+          </Typography>
           <ToggleButtonGroup
-            value={viewMode}
+            value={source}
             exclusive
-            onChange={(_, v) => { if (v) { setViewMode(v); localStorage.setItem('ytd-library-view', v); } }}
+            onChange={(_, v) => { if (v) setSource(v); }}
             size="small"
           >
-            <ToggleButton value="list" title="Table view"><ViewListIcon fontSize="small" /></ToggleButton>
-            <ToggleButton value="grid" title="Card view"><GridViewIcon fontSize="small" /></ToggleButton>
+            <ToggleButton value="all">All</ToggleButton>
+            <ToggleButton value="youtube">YouTube</ToggleButton>
+            <ToggleButton value="local">Local</ToggleButton>
           </ToggleButtonGroup>
-          {viewMode === 'list' && (
-            <IconButton size="small" onClick={(e) => setColumnAnchor(e.currentTarget)} title="Choose columns">
-              <ViewColumnIcon fontSize="small" />
-            </IconButton>
-          )}
         </Box>
-      )}
+
+        {/* Media Type Filter - Dropdown for scalability */}
+        <Box display="flex" gap={0.5} alignItems="center">
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+            Type:
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value={mediaType}
+              onChange={(e) => setMediaType(e.target.value as any)}
+              sx={{
+                height: 32,
+                '& .MuiSelect-select': { py: 0.5 }
+              }}
+            >
+              <MenuItem value="all">All Types</MenuItem>
+              <MenuItem value="video">Video</MenuItem>
+              <MenuItem value="audio">Audio</MenuItem>
+              <MenuItem value="image">Image</MenuItem>
+              {/* Future: PDF, Markdown, PowerPoint, Word will be added here */}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {/* Divider between filters and view options */}
+        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+        {/* View Mode */}
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, v) => { if (v) { setViewMode(v); localStorage.setItem('ytd-library-view', v); } }}
+          size="small"
+        >
+          <ToggleButton value="list" title="Table view"><ViewListIcon fontSize="small" /></ToggleButton>
+          <ToggleButton value="grid" title="Card view"><GridViewIcon fontSize="small" /></ToggleButton>
+        </ToggleButtonGroup>
+        {viewMode === 'list' && items.length > 0 && (
+          <IconButton size="small" onClick={(e) => setColumnAnchor(e.currentTarget)} title="Choose columns">
+            <ViewColumnIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
 
       {sorted.length === 0 ? (
         <Box textAlign="center" py={6}>
-          <Typography color="text.secondary">
-            {items.length === 0 ? 'Your library is empty. Download a video to get started.' : 'No matching results'}
+          <Typography color="text.secondary" gutterBottom>
+            {items.length === 0 ? 'Your library is empty. Download a video or add a local folder to get started.' : 'No matching results'}
           </Typography>
+          {items.length === 0 && (source !== 'all' || mediaType !== 'all') && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Try changing the filters above to see your content.
+            </Typography>
+          )}
         </Box>
       ) : viewMode === 'grid' ? (
         <Grid container spacing={1.5}>
@@ -343,7 +555,7 @@ export default function Library() {
                   '&:hover': { borderColor: 'primary.main' },
                 }}
                 elevation={0}
-                onClick={() => { if (item.filePath) setPlayingItem(item); }}
+                onClick={() => { if (item.filePath) handlePlayItem(item); }}
               >
                 <Checkbox
                   size="small"
@@ -448,9 +660,16 @@ export default function Library() {
                       <Typography variant="body2" color="text.secondary">{formatDate(item.addedAt)}</Typography>
                     </TableCell>
                   )}
+                  {visibleColumns.has('filePath') && (
+                    <TableCell sx={{ maxWidth: 300 }}>
+                      <Typography variant="body2" color="text.secondary" noWrap title={item.filePath || ''}>
+                        {item.filePath || '—'}
+                      </Typography>
+                    </TableCell>
+                  )}
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                     {item.filePath && (
-                      <IconButton size="small" onClick={() => setPlayingItem(item)} title="Play">
+                      <IconButton size="small" onClick={() => handlePlayItem(item)} title="Play">
                         <PlayArrowIcon fontSize="small" />
                       </IconButton>
                     )}
@@ -471,6 +690,15 @@ export default function Library() {
         onClose={() => setPlayingItem(null)}
       />
 
+      {viewingImages && (
+        <ImageViewer
+          images={viewingImages.images}
+          currentIndex={viewingImages.currentIndex}
+          onClose={() => setViewingImages(null)}
+          onNavigate={(index) => setViewingImages({ ...viewingImages, currentIndex: index })}
+        />
+      )}
+
       <AddToPlaylistDialog
         open={!!addToPlaylistVideo}
         videos={addToPlaylistVideo ? [addToPlaylistVideo] : []}
@@ -485,7 +713,7 @@ export default function Library() {
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         {menuItem?.filePath && (
-          <MenuItem onClick={() => { setPlayingItem(menuItem); setMenuAnchor(null); }}>
+          <MenuItem onClick={() => { handlePlayItem(menuItem); setMenuAnchor(null); }}>
             <ListItemIcon><PlayArrowIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Play</ListItemText>
           </MenuItem>
@@ -534,14 +762,30 @@ export default function Library() {
           </MenuItem>
         )}
         <Divider />
-        <MenuItem onClick={handleCopyURL}>
-          <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Copy Video URL</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={() => { if (menuItem) openInYouTube(menuItem.videoId); setMenuAnchor(null); }}>
-          <ListItemIcon><OpenInNewIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Open on YouTube</ListItemText>
-        </MenuItem>
+        {menuItem?.filePath && (
+          <MenuItem onClick={() => {
+            if (menuItem?.filePath) {
+              navigator.clipboard.writeText(menuItem.filePath);
+              setSnackbarMessage('File path copied to clipboard');
+            }
+            setMenuAnchor(null);
+          }}>
+            <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Copy File Path</ListItemText>
+          </MenuItem>
+        )}
+        {menuItem?.videoId && !menuItem.videoId.startsWith('local-') && (
+          <MenuItem onClick={handleCopyURL}>
+            <ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Copy Video URL</ListItemText>
+          </MenuItem>
+        )}
+        {menuItem?.videoId && !menuItem.videoId.startsWith('local-') && (
+          <MenuItem onClick={() => { if (menuItem) openInYouTube(menuItem.videoId); setMenuAnchor(null); }}>
+            <ListItemIcon><OpenInNewIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Open on YouTube</ListItemText>
+          </MenuItem>
+        )}
         <Divider />
         <MenuItem onClick={() => { if (menuItem) { setSelected(new Set([menuItem.videoId])); setDeleteDialogOpen(true); } setMenuAnchor(null); }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
@@ -605,6 +849,29 @@ export default function Library() {
           <Button onClick={handleRename} variant="contained">
             Rename
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={indexingInProgress} onClose={() => {}}>
+        <DialogTitle>Indexing Media Files...</DialogTitle>
+        <DialogContent sx={{ minWidth: 400 }}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Found: {indexingProgress.filesFound} | Processed: {indexingProgress.filesProcessed} | Failed: {indexingProgress.filesFailed}
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={indexingProgress.filesFound > 0 ? (indexingProgress.filesProcessed / indexingProgress.filesFound) * 100 : 0}
+            />
+          </Box>
+          {indexingProgress.currentFile && (
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {indexingProgress.currentFile}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => window.api.media.cancelIndexing()}>Cancel</Button>
         </DialogActions>
       </Dialog>
 

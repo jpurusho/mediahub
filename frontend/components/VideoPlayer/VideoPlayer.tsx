@@ -519,6 +519,95 @@ export default function VideoPlayer({ open, record, onClose }: Props) {
               </Box>
             </>
           )}
+
+          {/* Media Info Footer */}
+          {record && (
+            <Box
+              sx={{
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                px: 2,
+                py: 0.75,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                fontSize: '0.75rem',
+                flexShrink: 0,
+              }}
+            >
+              {/* Source Icon & Type */}
+              <Box display="flex" alignItems="center" gap={0.5}>
+                {(record as any).source === 'local' || !(record as any).url?.includes('youtube') ? (
+                  <>
+                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
+                    <Typography variant="caption" fontWeight={600}>Local</Typography>
+                  </>
+                ) : (
+                  <>
+                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#FF0000' }} />
+                    <Typography variant="caption" fontWeight={600}>YouTube</Typography>
+                  </>
+                )}
+              </Box>
+
+              <Box sx={{ width: 1, height: 14, bgcolor: 'divider' }} />
+
+              {/* File Name */}
+              {record.filePath && (
+                <Typography variant="caption" noWrap sx={{ maxWidth: 250 }}>
+                  {record.filePath.split('/').pop()}
+                </Typography>
+              )}
+
+              {/* Format */}
+              {record.format && (
+                <>
+                  <Typography variant="caption" color="text.secondary">
+                    {record.format.toUpperCase()}
+                  </Typography>
+                </>
+              )}
+
+              {/* Resolution */}
+              {(record as any).resolution && (
+                <Typography variant="caption" color="text.secondary">
+                  {(record as any).resolution}p
+                </Typography>
+              )}
+
+              {/* File Size */}
+              {record.fileSize > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  {record.fileSize >= 1_073_741_824
+                    ? `${(record.fileSize / 1_073_741_824).toFixed(1)} GB`
+                    : record.fileSize >= 1_048_576
+                    ? `${(record.fileSize / 1_048_576).toFixed(0)} MB`
+                    : `${(record.fileSize / 1024).toFixed(0)} KB`}
+                </Typography>
+              )}
+
+              <Box sx={{ flex: 1 }} />
+
+              {/* File Path (for local files) */}
+              {record.filePath && (record as any).source === 'local' && (
+                <Tooltip title={record.filePath}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(record.filePath!);
+                    }}
+                    sx={{ p: 0.5 }}
+                  >
+                    <Box display="flex" alignItems="center" gap={0.5}>
+                      <FolderOpenIcon sx={{ fontSize: 12 }} />
+                      <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Copy Path</Typography>
+                    </Box>
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+          )}
         </>
       )}
     </Box>

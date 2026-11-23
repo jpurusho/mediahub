@@ -7,9 +7,10 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      name: 'video-streaming',
+      name: 'media-streaming',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
+          // Video streaming endpoint
           if (req.url?.startsWith('/video?')) {
             const url = new URL(req.url, 'http://localhost');
             const videoPath = url.searchParams.get('path');
@@ -57,6 +58,44 @@ export default defineConfig({
             }
             return;
           }
+
+          // Image serving endpoint
+          if (req.url?.startsWith('/image?')) {
+            const url = new URL(req.url, 'http://localhost');
+            const imagePath = url.searchParams.get('path');
+
+            if (!imagePath || !fs.existsSync(imagePath)) {
+              res.statusCode = 404;
+              res.end('Not found');
+              return;
+            }
+
+            const stat = fs.statSync(imagePath);
+            const fileSize = stat.size;
+            const ext = path.extname(imagePath).toLowerCase();
+            const mimeTypes: Record<string, string> = {
+              '.png': 'image/png',
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.gif': 'image/gif',
+              '.webp': 'image/webp',
+              '.heic': 'image/heic',
+              '.heif': 'image/heif',
+              '.bmp': 'image/bmp',
+              '.tiff': 'image/tiff',
+              '.tif': 'image/tiff',
+            };
+            const contentType = mimeTypes[ext] || 'image/jpeg';
+
+            res.writeHead(200, {
+              'Content-Length': fileSize,
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=3600',
+            });
+            fs.createReadStream(imagePath).pipe(res);
+            return;
+          }
+
           next();
         });
       },

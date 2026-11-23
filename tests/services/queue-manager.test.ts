@@ -4,6 +4,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { DownloadRequest } from '../../shared/types';
 
+// Mock electron
+vi.mock('electron', () => ({
+  BrowserWindow: {
+    getAllWindows: vi.fn().mockReturnValue([]),
+  },
+}));
+
 // Mock database functions
 vi.mock('../../desktop/services/database', () => ({
   addToQueue: vi.fn((request: DownloadRequest) => ({
@@ -51,15 +58,15 @@ vi.mock('../../desktop/services/database', () => ({
 
 // Mock download engine
 vi.mock('../../desktop/services/download-engine', () => ({
-  DownloadEngine: vi.fn().mockImplementation(() => ({
-    setCallbacks: vi.fn(),
-    startDownload: vi.fn(),
-    pauseDownload: vi.fn().mockReturnValue(true),
-    resumeDownload: vi.fn().mockReturnValue(true),
-    cancelDownload: vi.fn(),
-    getActiveCount: vi.fn().mockReturnValue(0),
-    isActive: vi.fn().mockReturnValue(false),
-  })),
+  DownloadEngine: class MockDownloadEngine {
+    setCallbacks = vi.fn();
+    startDownload = vi.fn();
+    pauseDownload = vi.fn().mockReturnValue(true);
+    resumeDownload = vi.fn().mockReturnValue(true);
+    cancelDownload = vi.fn();
+    getActiveCount = vi.fn().mockReturnValue(0);
+    isActive = vi.fn().mockReturnValue(false);
+  },
 }));
 
 describe('QueueManager', () => {

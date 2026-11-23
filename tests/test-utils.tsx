@@ -3,7 +3,7 @@
  */
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
-import { ThemeProvider } from '../frontend/theme/ThemeContext';
+import { AppThemeProvider } from '../frontend/theme/ThemeContext';
 
 /**
  * Custom render function that wraps components with providers
@@ -13,9 +13,9 @@ function customRender(
   options?: Omit<RenderOptions, 'wrapper'>
 ) {
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <ThemeProvider>
+    <AppThemeProvider>
       {children}
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 
   return render(ui, { wrapper: Wrapper, ...options });

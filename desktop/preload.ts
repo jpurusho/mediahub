@@ -61,6 +61,91 @@ const api: ElectronAPI = {
     getRecent: (limit: number) => ipcRenderer.invoke('library:getRecent', limit),
     getStats: () => ipcRenderer.invoke('library:getStats'),
   },
+  media: {
+    getAll: (opts?: any) => ipcRenderer.invoke('media:getAll', opts),
+    get: (id: number) => ipcRenderer.invoke('media:get', id),
+    getByPath: (filePath: string) => ipcRenderer.invoke('media:getByPath', filePath),
+    getByYoutubeId: (videoId: string) => ipcRenderer.invoke('media:getByYoutubeId', videoId),
+    delete: (ids: number[]) => ipcRenderer.invoke('media:delete', ids),
+    getStats: () => ipcRenderer.invoke('media:getStats'),
+    scanFolder: (folderPath: string, recursive?: boolean) => ipcRenderer.invoke('media:scanFolder', folderPath, recursive),
+    indexFile: (filePath: string) => ipcRenderer.invoke('media:indexFile', filePath),
+    cancelIndexing: () => ipcRenderer.invoke('media:cancelIndexing'),
+    getIndexingProgress: () => ipcRenderer.invoke('media:getIndexingProgress'),
+    onIndexingStarted: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:indexing-started', handler);
+      return () => ipcRenderer.removeListener('media:indexing-started', handler);
+    },
+    onIndexingProgress: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:indexing-progress', handler);
+      return () => ipcRenderer.removeListener('media:indexing-progress', handler);
+    },
+    onIndexingCompleted: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:indexing-completed', handler);
+      return () => ipcRenderer.removeListener('media:indexing-completed', handler);
+    },
+    onIndexingError: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:indexing-error', handler);
+      return () => ipcRenderer.removeListener('media:indexing-error', handler);
+    },
+    onFileIndexed: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:file-indexed', handler);
+      return () => ipcRenderer.removeListener('media:file-indexed', handler);
+    },
+    onFileFailed: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('media:file-failed', handler);
+      return () => ipcRenderer.removeListener('media:file-failed', handler);
+    },
+  },
+  indexedFolders: {
+    add: (path: string, recursive?: boolean) => ipcRenderer.invoke('indexedFolders:add', path, recursive),
+    getAll: () => ipcRenderer.invoke('indexedFolders:getAll'),
+    get: (id: number) => ipcRenderer.invoke('indexedFolders:get', id),
+    update: (id: number, updates: any) => ipcRenderer.invoke('indexedFolders:update', id, updates),
+    delete: (id: number) => ipcRenderer.invoke('indexedFolders:delete', id),
+  },
+  fileWatcher: {
+    getWatchedFolders: () => ipcRenderer.invoke('fileWatcher:getWatchedFolders'),
+    isWatching: (folderId: number) => ipcRenderer.invoke('fileWatcher:isWatching', folderId),
+    getMaxWatchers: () => ipcRenderer.invoke('fileWatcher:getMaxWatchers'),
+    setMaxWatchers: (max: number) => ipcRenderer.invoke('fileWatcher:setMaxWatchers', max),
+    onFileAdded: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:file-added', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:file-added', handler);
+    },
+    onFileChanged: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:file-changed', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:file-changed', handler);
+    },
+    onFileRemoved: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:file-removed', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:file-removed', handler);
+    },
+    onWatcherStarted: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:watcher-started', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:watcher-started', handler);
+    },
+    onWatcherStopped: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:watcher-stopped', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:watcher-stopped', handler);
+    },
+    onWatcherError: (callback: any) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+      ipcRenderer.on('fileWatcher:watcher-error', handler);
+      return () => ipcRenderer.removeListener('fileWatcher:watcher-error', handler);
+    },
+  },
   transcripts: {
     start: (videoId: string, options?: import('../shared/types').TranscriptOptions) => ipcRenderer.invoke('transcripts:start', videoId, options),
     cancel: (videoId: string) => ipcRenderer.invoke('transcripts:cancel', videoId),
@@ -163,6 +248,7 @@ const api: ElectronAPI = {
     },
     checkTools: () => ipcRenderer.invoke('app:checkTools'),
     getVideoFileUrl: (filePath: string) => ipcRenderer.invoke('app:getVideoFileUrl', filePath),
+    getImageFileUrl: (filePath: string) => ipcRenderer.invoke('app:getImageFileUrl', filePath),
     fileExists: (filePath: string) => ipcRenderer.invoke('app:fileExists', filePath),
     convertToMp4: (filePath: string) => ipcRenderer.invoke('app:convertToMp4', filePath),
     openInSystemPlayer: (filePath: string) => ipcRenderer.invoke('app:openInSystemPlayer', filePath),

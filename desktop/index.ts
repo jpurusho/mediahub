@@ -8,7 +8,7 @@ import { initDatabase } from './services/database';
 
 config({ path: path.join(__dirname, '../../.env') });
 
-app.setName('ytd');
+app.setName('MediaHub');
 
 const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
@@ -46,7 +46,7 @@ function createWindow(): void {
   );
 
   mainWindow = new BrowserWindow({
-    title: 'ytd',
+    title: 'MediaHub',
     width: 1280,
     height: 850,
     minWidth: 960,
@@ -183,6 +183,9 @@ function startProductionServer(): Promise<number> {
     const mimeTypes: Record<string, string> = {
       '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
       '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+      '.heic': 'image/heic', '.heif': 'image/heif', '.bmp': 'image/bmp',
+      '.tiff': 'image/tiff', '.tif': 'image/tiff',
       '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ico': 'image/x-icon',
       '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
@@ -229,6 +232,29 @@ function startProductionServer(): Promise<number> {
           });
           fs.createReadStream(videoPath).pipe(res);
         }
+        return;
+      }
+
+      // Image serving endpoint
+      if (url.pathname === '/image') {
+        const imagePath = url.searchParams.get('path');
+        if (!imagePath || !fs.existsSync(imagePath)) {
+          res.writeHead(404);
+          res.end('Not found');
+          return;
+        }
+
+        const stat = fs.statSync(imagePath);
+        const fileSize = stat.size;
+        const ext = path.extname(imagePath).toLowerCase();
+        const contentType = mimeTypes[ext] || 'image/jpeg';
+
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=3600',
+        });
+        fs.createReadStream(imagePath).pipe(res);
         return;
       }
 
@@ -372,6 +398,12 @@ app.whenReady().then(async () => {
   const { logger } = require('./services/logger');
   logger.init();
 
+  // Initialize file watcher after database is ready
+  const { fileWatcher } = require('./services/file-watcher');
+  fileWatcher.initializeWatchers().catch((error: any) => {
+    console.error('[App] Failed to initialize file watchers:', error);
+  });
+
   registerIpcHandlers();
   createWindow();
 
@@ -388,7 +420,12 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
+  // Stop file watchers
+  const { fileWatcher } = require('./services/file-watcher');
+  await fileWatcher.stopAll();
+
+  // Stop production server
   if (prodServer) {
     prodServer.close();
     prodServer = null;
