@@ -234,6 +234,10 @@ export class MediaIndexer extends EventEmitter {
         case 'image':
           metadata = await this.extractImageMetadata(filePath);
           break;
+        case 'html':
+          // HTML files don't need metadata extraction
+          // Title comes from filename, no duration/dimensions needed
+          break;
       }
 
       // Generate source ID from file path hash
