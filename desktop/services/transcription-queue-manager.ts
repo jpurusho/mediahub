@@ -12,6 +12,7 @@ import {
   getTranscript,
   updateTranscript,
   getLibraryItem,
+  getMediaItemByYoutubeId,
   resolveFilePath,
 } from './database';
 import type { TranscriptOptions } from '../../shared/types';
@@ -35,13 +36,35 @@ export class TranscriptionQueueManager {
    * Add a video to the transcription queue
    */
   async enqueue(videoId: string, options: TranscriptOptions = {}): Promise<number> {
-    // Check if video exists in library
+    // Check if video exists in library (YouTube downloads) or media_items (local/YouTube videos)
+    let filePath: string | null = null;
+
+    // First try library table (YouTube downloads - legacy)
     const libraryItem = getLibraryItem(videoId);
-    if (!libraryItem || !libraryItem.filePath) {
-      throw new Error(`Video not found in library or file path missing: ${videoId}`);
+    if (libraryItem?.filePath) {
+      filePath = libraryItem.filePath;
+    } else {
+      // Try media_items table
+      // For YouTube videos: youtube_video_id column
+      // For local videos: source_id column (e.g., "local-73d5pq")
+      const db = require('./database').getDb();
+      const mediaItem = db.prepare(`
+        SELECT file_path FROM media_items
+        WHERE (youtube_video_id = ? OR source_id = ?)
+        AND (media_type = 'video' OR media_type = 'audio')
+        LIMIT 1
+      `).get(videoId, videoId) as { file_path: string } | undefined;
+
+      if (mediaItem?.file_path) {
+        filePath = mediaItem.file_path;
+      }
     }
 
-    const videoPath = resolveFilePath(libraryItem.filePath);
+    if (!filePath) {
+      throw new Error(`Video not found or file path missing: ${videoId}. Make sure the file exists and is a video or audio file.`);
+    }
+
+    const videoPath = resolveFilePath(filePath);
 
     // Check if transcript already exists and is completed
     const existing = getTranscript(videoId);

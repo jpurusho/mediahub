@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Box, IconButton, Typography, Dialog, AppBar, Toolbar, CircularProgress, Alert, Tooltip } from '@mui/material';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Box, IconButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
@@ -22,55 +22,81 @@ interface ImageViewerProps {
 export default function ImageViewer({ images, currentIndex, onClose, onNavigate }: ImageViewerProps) {
   const [index, setIndex] = useState(currentIndex);
   const [zoom, setZoom] = useState(1);
-  const [fitMode, setFitMode] = useState<'fit' | 'actual'>('fit');
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [imageSrc, setImageSrc] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
+  const isPanning = useRef(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const imageContainerRef = useRef<HTMLDivElement>(null);
+
   const currentImage = images[index];
 
-  // Define all callbacks first (before useEffect hooks that reference them)
+  // Reset zoom and pan when changing images
+  const resetZoomPan = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // Navigation
   const handlePrevious = useCallback(() => {
     if (index > 0) {
       const newIndex = index - 1;
       setIndex(newIndex);
-      setZoom(1);
-      setFitMode('fit');
+      resetZoomPan();
       onNavigate?.(newIndex);
     }
-  }, [index, onNavigate]);
+  }, [index, onNavigate, resetZoomPan]);
 
   const handleNext = useCallback(() => {
     if (index < images.length - 1) {
       const newIndex = index + 1;
       setIndex(newIndex);
-      setZoom(1);
-      setFitMode('fit');
+      resetZoomPan();
       onNavigate?.(newIndex);
     }
-  }, [index, images.length, onNavigate]);
+  }, [index, images.length, onNavigate, resetZoomPan]);
 
+  // Zoom controls
   const handleZoomIn = useCallback(() => {
     setZoom(prev => Math.min(prev + 0.25, 5));
-    setFitMode('actual');
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(prev - 0.25, 0.25));
-    setFitMode('actual');
+    setZoom(prev => Math.max(prev - 0.25, 0.5));
   }, []);
 
-  const handleFitToggle = useCallback(() => {
-    if (fitMode === 'fit') {
-      setFitMode('actual');
-      setZoom(1);
-    } else {
-      setFitMode('fit');
-      setZoom(1);
-    }
-  }, [fitMode]);
+  // Pan handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    isPanning.current = true;
+    panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  }, [zoom, pan]);
 
-  // Load image via HTTP endpoint
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning.current) return;
+    e.preventDefault();
+    setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    isPanning.current = false;
+  }, []);
+
+  // Click to zoom
+  const handleImageClick = useCallback(() => {
+    if (!isPanning.current) {
+      if (zoom === 1) {
+        setZoom(2);
+      } else {
+        resetZoomPan();
+      }
+    }
+  }, [zoom, resetZoomPan]);
+
+  // Load image
   useEffect(() => {
     async function loadImage() {
       setLoading(true);
@@ -78,7 +104,6 @@ export default function ImageViewer({ images, currentIndex, onClose, onNavigate 
 
       try {
         if (currentImage.filePath) {
-          // Get HTTP URL for image file
           const result = await window.api.app.getImageFileUrl(currentImage.filePath);
           if (result.error) {
             setError(result.error);
@@ -103,119 +128,191 @@ export default function ImageViewer({ images, currentIndex, onClose, onNavigate 
     loadImage();
   }, [currentImage]);
 
-  // Handle keyboard navigation
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'Escape':
-          onClose();
-          break;
-        case 'ArrowLeft':
-          handlePrevious();
-          break;
-        case 'ArrowRight':
-          handleNext();
-          break;
-        case '+':
-        case '=':
-          handleZoomIn();
-          break;
-        case '-':
-          handleZoomOut();
-          break;
-        case '0':
-          handleFitToggle();
-          break;
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevious();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      } else if (e.key === '+' || e.key === '=') {
+        handleZoomIn();
+      } else if (e.key === '-') {
+        handleZoomOut();
+      } else if (e.key === '0') {
+        resetZoomPan();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, handlePrevious, handleNext, handleZoomIn, handleZoomOut, handleFitToggle]);
+  }, [onClose, handlePrevious, handleNext, handleZoomIn, handleZoomOut, resetZoomPan]);
 
-  // Handle mouse wheel zoom
+  // Smooth wheel zoom
   useEffect(() => {
+    const el = imageContainerRef.current;
+    if (!el) return;
+
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        if (e.deltaY < 0) {
-          handleZoomIn();
-        } else {
-          handleZoomOut();
-        }
-      }
+      e.preventDefault();
+      setZoom(z => Math.max(0.5, Math.min(5, z - e.deltaY * 0.002)));
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    return () => window.removeEventListener('wheel', handleWheel);
-  }, [handleZoomIn, handleZoomOut]);
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [currentImage.videoId]);
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      fullScreen
+    // Full-screen overlay (not MUI Dialog)
+    <Box
       sx={{
-        '& .MuiDialog-paper': {
-          bgcolor: 'rgba(0, 0, 0, 0.95)',
-        }
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bgcolor: 'rgba(0, 0, 0, 0.95)',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        // Prevent Electron window drag on this overlay
+        WebkitAppRegion: 'no-drag',
       }}
     >
       {/* Top Toolbar */}
-      <AppBar position="fixed" sx={{ bgcolor: 'rgba(0, 0, 0, 0.8)' }}>
-        <Toolbar>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle1" noWrap>
-              {currentImage.title}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {index + 1} / {images.length}
-            </Typography>
-          </Box>
-
-          <IconButton color="inherit" onClick={handleZoomOut} disabled={zoom <= 0.25}>
-            <ZoomOutIcon />
-          </IconButton>
-          <Typography variant="body2" sx={{ mx: 1, minWidth: 50, textAlign: 'center' }}>
-            {Math.round(zoom * 100)}%
-          </Typography>
-          <IconButton color="inherit" onClick={handleZoomIn} disabled={zoom >= 5}>
-            <ZoomInIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={handleFitToggle} title={fitMode === 'fit' ? 'Actual size' : 'Fit to screen'}>
-            <FitScreenIcon />
-          </IconButton>
-          <IconButton color="inherit" onClick={onClose} sx={{ ml: 2 }}>
-            <CloseIcon />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
-
-      {/* Main Image Display */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          pt: 8,
-          overflow: fitMode === 'fit' ? 'hidden' : 'auto',
+          justifyContent: 'space-between',
+          px: 2,
+          py: 1.5,
+          bgcolor: 'rgba(0, 0, 0, 0.8)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           position: 'relative',
+          zIndex: 100,
+          // Make sure this can receive clicks, not window drag
+          WebkitAppRegion: 'no-drag',
+          pointerEvents: 'auto',
         }}
+      >
+        <Box
+          sx={{
+            WebkitAppRegion: 'no-drag',
+            pointerEvents: 'auto',
+          }}
+        >
+          <Typography variant="subtitle1" color="white" noWrap>
+            {currentImage.title}
+          </Typography>
+          <Typography variant="caption" color="rgba(255, 255, 255, 0.6)">
+            {index + 1} / {images.length}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            WebkitAppRegion: 'no-drag',
+            pointerEvents: 'auto',
+          }}
+        >
+          <IconButton
+            onClick={handleZoomOut}
+            disabled={zoom <= 0.5}
+            sx={{
+              color: 'white',
+              WebkitAppRegion: 'no-drag',
+              pointerEvents: 'auto',
+            }}
+            size="small"
+          >
+            <ZoomOutIcon />
+          </IconButton>
+          <Typography variant="body2" sx={{ color: 'white', minWidth: 50, textAlign: 'center' }}>
+            {Math.round(zoom * 100)}%
+          </Typography>
+          <IconButton
+            onClick={handleZoomIn}
+            disabled={zoom >= 5}
+            sx={{
+              color: 'white',
+              WebkitAppRegion: 'no-drag',
+              pointerEvents: 'auto',
+            }}
+            size="small"
+          >
+            <ZoomInIcon />
+          </IconButton>
+          {zoom !== 1 && (
+            <IconButton
+              onClick={resetZoomPan}
+              sx={{
+                color: 'white',
+                WebkitAppRegion: 'no-drag',
+                pointerEvents: 'auto',
+              }}
+              size="small"
+              title="Reset zoom"
+            >
+              <FitScreenIcon />
+            </IconButton>
+          )}
+          <IconButton
+            onClick={onClose}
+            sx={{
+              color: 'white',
+              ml: 2,
+              WebkitAppRegion: 'no-drag',
+              pointerEvents: 'auto',
+            }}
+            size="small"
+            title="Close (ESC)"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Image Container */}
+      <Box
+        ref={imageContainerRef}
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          position: 'relative',
+          cursor: zoom > 1 ? (isPanning.current ? 'grabbing' : 'grab') : 'zoom-in',
+          userSelect: 'none',
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onClick={handleImageClick}
       >
         {/* Previous Button */}
         {index > 0 && (
           <IconButton
-            onClick={handlePrevious}
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePrevious();
+            }}
             sx={{
               position: 'absolute',
               left: 16,
               top: '50%',
               transform: 'translateY(-50%)',
               bgcolor: 'rgba(0, 0, 0, 0.6)',
-              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.8)' },
               color: 'white',
-              zIndex: 1,
+              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.8)' },
+              zIndex: 10,
             }}
             size="large"
           >
@@ -223,17 +320,13 @@ export default function ImageViewer({ images, currentIndex, onClose, onNavigate 
           </IconButton>
         )}
 
-        {/* Image Content */}
+        {/* Image */}
         {loading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '50vh' }}>
-            <CircularProgress />
-          </Box>
+          <Typography color="white">Loading...</Typography>
         )}
 
         {error && (
-          <Alert severity="error" sx={{ maxWidth: 400 }}>
-            {error}
-          </Alert>
+          <Typography color="error">{error}</Typography>
         )}
 
         {!loading && !error && imageSrc && (
@@ -241,33 +334,34 @@ export default function ImageViewer({ images, currentIndex, onClose, onNavigate 
             component="img"
             src={imageSrc}
             alt={currentImage.title}
-            sx={{
-              maxWidth: fitMode === 'fit' ? '100%' : 'none',
-              maxHeight: fitMode === 'fit' ? 'calc(100vh - 100px)' : 'none',
-              width: fitMode === 'actual' ? `${zoom * 100}%` : 'auto',
-              height: fitMode === 'actual' ? 'auto' : 'auto',
-              objectFit: 'contain',
-              userSelect: 'none',
-              cursor: fitMode === 'fit' ? 'zoom-in' : 'zoom-out',
-            }}
-            onClick={handleFitToggle}
             draggable={false}
+            sx={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transition: 'transform 0.1s ease-out',
+              pointerEvents: 'none',
+            }}
           />
         )}
 
         {/* Next Button */}
         {index < images.length - 1 && (
           <IconButton
-            onClick={handleNext}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNext();
+            }}
             sx={{
               position: 'absolute',
               right: 16,
               top: '50%',
               transform: 'translateY(-50%)',
               bgcolor: 'rgba(0, 0, 0, 0.6)',
-              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.8)' },
               color: 'white',
-              zIndex: 1,
+              '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.8)' },
+              zIndex: 10,
             }}
             size="large"
           >
@@ -276,89 +370,18 @@ export default function ImageViewer({ images, currentIndex, onClose, onNavigate 
         )}
       </Box>
 
-      {/* Media Info Footer */}
-      {currentImage && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: 60,
-            left: 0,
-            right: 0,
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            bgcolor: 'rgba(0, 0, 0, 0.85)',
-            px: 2,
-            py: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            fontSize: '0.75rem',
-          }}
-        >
-          {/* Source Icon & Type */}
-          <Box display="flex" alignItems="center" gap={0.5}>
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />
-            <Typography variant="caption" fontWeight={600} color="white">Local Image</Typography>
-          </Box>
-
-          <Box sx={{ width: 1, height: 14, bgcolor: 'rgba(255, 255, 255, 0.2)' }} />
-
-          {/* File Name */}
-          {currentImage.filePath && (
-            <Typography variant="caption" noWrap sx={{ maxWidth: 300, color: 'white' }}>
-              {currentImage.filePath.split('/').pop()}
-            </Typography>
-          )}
-
-          {/* Format */}
-          {currentImage.filePath && (
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              {currentImage.filePath.split('.').pop()?.toUpperCase()}
-            </Typography>
-          )}
-
-          <Box sx={{ flex: 1 }} />
-
-          {/* File Path */}
-          {currentImage.filePath && (
-            <Tooltip title={currentImage.filePath}>
-              <IconButton
-                size="small"
-                onClick={() => {
-                  navigator.clipboard.writeText(currentImage.filePath);
-                }}
-                sx={{ p: 0.5, color: 'white' }}
-              >
-                <Box display="flex" alignItems="center" gap={0.5}>
-                  <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>Copy Path</Typography>
-                </Box>
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      )}
-
-      {/* Keyboard Hints */}
+      {/* Bottom hint */}
       <Box
         sx={{
-          position: 'fixed',
-          bottom: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          bgcolor: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          px: 2,
           py: 1,
-          borderRadius: 1,
-          display: 'flex',
-          gap: 2,
+          textAlign: 'center',
           fontSize: '0.75rem',
+          color: 'rgba(255, 255, 255, 0.6)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <span>← → Navigate</span>
-        <span>+ - Zoom</span>
-        <span>0 Fit/Actual</span>
-        <span>ESC Close</span>
+        Scroll to zoom · Click to zoom in · Drag to pan · ← → Navigate · 0 Reset · ESC Close
       </Box>
-    </Dialog>
+    </Box>
   );
 }
