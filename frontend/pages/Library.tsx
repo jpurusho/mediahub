@@ -83,7 +83,7 @@ export default function Library() {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [transcriptStatus, setTranscriptStatus] = useState<Record<string, boolean>>({});
   const [source, setSource] = useState<'all' | 'youtube' | 'local'>('all');
-  const [mediaType, setMediaType] = useState<'all' | 'video' | 'audio' | 'image' | 'html'>('all');
+  const [mediaType, setMediaType] = useState<'all' | 'video' | 'audio' | 'image' | 'html' | 'document'>('all');
   const [indexingInProgress, setIndexingInProgress] = useState(false);
   const [indexingProgress, setIndexingProgress] = useState({ filesFound: 0, filesProcessed: 0, filesFailed: 0, currentFile: '', totalSize: 0 });
   const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
@@ -593,7 +593,8 @@ export default function Library() {
               <MenuItem value="audio">Audio</MenuItem>
               <MenuItem value="image">Image</MenuItem>
               <MenuItem value="html">HTML</MenuItem>
-              {/* Future: PDF, Markdown, PowerPoint, Word will be added here */}
+              <MenuItem value="document">Document (JSON, Markdown)</MenuItem>
+              {/* Future: PDF, PowerPoint, Word will be added here */}
             </Select>
           </FormControl>
         </Box>
