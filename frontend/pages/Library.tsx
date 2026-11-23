@@ -28,6 +28,7 @@ import ImageViewer from '../components/ImageViewer/ImageViewer';
 import HTMLViewer from '../components/HTMLViewer/HTMLViewer';
 import JSONViewer from '../components/JSONViewer/JSONViewer';
 import MarkdownViewer from '../components/MarkdownViewer/MarkdownViewer';
+import PDFViewer from '../components/PDFViewer/PDFViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
 import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
@@ -91,6 +92,7 @@ export default function Library() {
   const [viewingHTML, setViewingHTML] = useState<LibraryItem | null>(null);
   const [viewingJSON, setViewingJSON] = useState<LibraryItem | null>(null);
   const [viewingMarkdown, setViewingMarkdown] = useState<LibraryItem | null>(null);
+  const [viewingPDF, setViewingPDF] = useState<LibraryItem | null>(null);
   const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
   const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
 
@@ -304,7 +306,7 @@ export default function Library() {
   }
 
   // Helper to detect media type from file extension or format
-  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'json' | 'markdown' | 'unknown' {
+  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'json' | 'markdown' | 'pdf' | 'unknown' {
     const ext = item.filePath ? item.filePath.split('.').pop()?.toLowerCase() : '';
     const format = item.format?.toLowerCase();
 
@@ -323,6 +325,10 @@ export default function Library() {
     // Check for Markdown extensions
     const markdownExts = ['md', 'markdown'];
     if (ext && markdownExts.includes(ext)) return 'markdown';
+
+    // Check for PDF extensions
+    const pdfExts = ['pdf'];
+    if (ext && pdfExts.includes(ext)) return 'pdf';
 
     // Check for audio extensions/formats
     const audioExts = ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'opus', 'wma'];
@@ -357,6 +363,8 @@ export default function Library() {
       setViewingJSON(item);
     } else if (itemType === 'markdown') {
       setViewingMarkdown(item);
+    } else if (itemType === 'pdf') {
+      setViewingPDF(item);
     } else if (itemType === 'video' || itemType === 'audio') {
       setPlayingItem(item);
     } else {
@@ -597,8 +605,8 @@ export default function Library() {
               <MenuItem value="audio">Audio</MenuItem>
               <MenuItem value="image">Image</MenuItem>
               <MenuItem value="html">HTML</MenuItem>
-              <MenuItem value="document">Document (JSON, Markdown)</MenuItem>
-              {/* Future: PDF, PowerPoint, Word will be added here */}
+              <MenuItem value="document">Document (PDF, JSON, Markdown)</MenuItem>
+              {/* Future: PowerPoint, Word will be added here */}
             </Select>
           </FormControl>
         </Box>
@@ -812,6 +820,14 @@ export default function Library() {
           filePath={viewingMarkdown.filePath}
           title={viewingMarkdown.title}
           onClose={() => setViewingMarkdown(null)}
+        />
+      )}
+
+      {viewingPDF && (
+        <PDFViewer
+          filePath={viewingPDF.filePath}
+          title={viewingPDF.title}
+          onClose={() => setViewingPDF(null)}
         />
       )}
 

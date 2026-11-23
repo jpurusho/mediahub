@@ -252,6 +252,7 @@ const api: ElectronAPI = {
     getHTMLFileUrl: (filePath: string) => ipcRenderer.invoke('app:getHTMLFileUrl', filePath),
     getJSONFileContent: (filePath: string) => ipcRenderer.invoke('app:getJSONFileContent', filePath),
     getMarkdownFileContent: (filePath: string) => ipcRenderer.invoke('app:getMarkdownFileContent', filePath),
+    getPDFFileUrl: (filePath: string) => ipcRenderer.invoke('app:getPDFFileUrl', filePath),
     fileExists: (filePath: string) => ipcRenderer.invoke('app:fileExists', filePath),
     convertToMp4: (filePath: string) => ipcRenderer.invoke('app:convertToMp4', filePath),
     openInSystemPlayer: (filePath: string) => ipcRenderer.invoke('app:openInSystemPlayer', filePath),

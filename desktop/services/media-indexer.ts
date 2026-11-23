@@ -20,6 +20,7 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.h
 const HTML_EXTENSIONS = ['.html', '.htm'];
 const JSON_EXTENSIONS = ['.json'];
 const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
+const PDF_EXTENSIONS = ['.pdf'];
 
 // Folders to skip during scanning
 const SKIP_FOLDERS = new Set([
@@ -365,6 +366,7 @@ export class MediaIndexer extends EventEmitter {
     if (HTML_EXTENSIONS.includes(ext)) return 'html';
     if (JSON_EXTENSIONS.includes(ext)) return 'document';
     if (MARKDOWN_EXTENSIONS.includes(ext)) return 'document';
+    if (PDF_EXTENSIONS.includes(ext)) return 'document';
 
     // Fallback: Use file-type library (reads file header)
     try {
@@ -501,7 +503,8 @@ export class MediaIndexer extends EventEmitter {
             IMAGE_EXTENSIONS.includes(ext) ||
             HTML_EXTENSIONS.includes(ext) ||
             JSON_EXTENSIONS.includes(ext) ||
-            MARKDOWN_EXTENSIONS.includes(ext)
+            MARKDOWN_EXTENSIONS.includes(ext) ||
+            PDF_EXTENSIONS.includes(ext)
           ) {
             files.push(fullPath);
           }
