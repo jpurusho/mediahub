@@ -260,8 +260,8 @@ export default function MarkdownViewer({ filePath, title, onClose }: MarkdownVie
                 '& h1': {
                   fontSize: '2em',
                   fontWeight: 600,
-                  color: '#e06c75',
-                  borderBottom: '2px solid #5c6370',
+                  color: '#56b6c2',
+                  borderBottom: '2px solid #3e4451',
                   pb: 1,
                   mb: 2,
                   mt: 3,
@@ -270,7 +270,7 @@ export default function MarkdownViewer({ filePath, title, onClose }: MarkdownVie
                   fontSize: '1.5em',
                   fontWeight: 600,
                   color: '#61afef',
-                  borderBottom: '1px solid #5c6370',
+                  borderBottom: '1px solid #3e4451',
                   pb: 1,
                   mb: 2,
                   mt: 2.5,
@@ -284,7 +284,7 @@ export default function MarkdownViewer({ filePath, title, onClose }: MarkdownVie
                 },
                 '& h4, & h5, & h6': {
                   fontWeight: 600,
-                  color: '#98c379',
+                  color: '#d19a66',
                   mb: 1,
                   mt: 1.5,
                 },

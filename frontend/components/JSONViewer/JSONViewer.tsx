@@ -284,10 +284,10 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
                   fontSize: '14px',
                   lineHeight: 1.6,
                   '& .string': { color: '#98c379' },
-                  '& .number': { color: '#d19a66' },
-                  '& .boolean': { color: '#56b6c2' },
+                  '& .number': { color: '#e5c07b' },
+                  '& .boolean': { color: '#61afef' },
                   '& .null': { color: '#c678dd' },
-                  '& .key': { color: '#e06c75', fontWeight: 500 },
+                  '& .key': { color: '#e06c75', fontWeight: 600 },
                 }}
               />
             </Box>
