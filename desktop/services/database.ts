@@ -1686,6 +1686,45 @@ export function deleteMediaItems(ids: number[]): void {
   db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids);
 }
 
+/**
+ * Delete all media items from a specific folder path
+ * Also removes them from playlists
+ * Returns the number of items deleted
+ */
+export function deleteMediaItemsByFolderPath(folderPath: string): number {
+  // Normalize path separators
+  const normalizedPath = folderPath.replace(/\\/g, '/');
+
+  const transaction = db.transaction(() => {
+    // 1. Get all source_ids for media items in this folder (for playlist cleanup)
+    const items = db.prepare(`
+      SELECT source_id FROM media_items
+      WHERE REPLACE(file_path, '\\', '/') LIKE ?
+      AND source_id IS NOT NULL
+    `).all(`${normalizedPath}%`) as Array<{ source_id: string }>;
+
+    // 2. Delete from playlists if any items have playlist entries
+    if (items.length > 0) {
+      const sourceIds = items.map(item => item.source_id);
+      const placeholders = sourceIds.map(() => '?').join(',');
+      db.prepare(`
+        DELETE FROM local_playlist_items
+        WHERE video_id IN (${placeholders})
+      `).run(...sourceIds);
+    }
+
+    // 3. Delete the media items
+    const result = db.prepare(`
+      DELETE FROM media_items
+      WHERE REPLACE(file_path, '\\', '/') LIKE ?
+    `).run(`${normalizedPath}%`);
+
+    return result.changes;
+  });
+
+  return transaction();
+}
+
 export function getMediaItemStats(): { total: number; youtube: number; local: number; byType: Record<string, number> } {
   const total = (db.prepare('SELECT COUNT(*) as count FROM media_items').get() as any).count;
   const youtube = (db.prepare("SELECT COUNT(*) as count FROM media_items WHERE source = 'youtube'").get() as any).count;

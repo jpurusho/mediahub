@@ -516,6 +516,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('indexedFolders:delete', async (_event, id: number) => {
+    // Get folder path before deleting
+    const folder = getIndexedFolder(id);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
     // Stop watching before deleting
     try {
       await fileWatcher.unwatchFolder(id);
@@ -526,7 +532,19 @@ export function registerIpcHandlers(): void {
       });
     }
 
+    // Delete all media items from this folder
+    const itemsDeleted = require('./services/database').deleteMediaItemsByFolderPath(folder.path);
+
+    // Delete the folder entry
     deleteIndexedFolder(id);
+
+    logger.info('[IPC] Deleted indexed folder and media items', {
+      folderId: id,
+      folderPath: folder.path,
+      itemsDeleted
+    });
+
+    return { itemsDeleted };
   });
 
   // ─── File Watcher ────────────────────────────────────────────────────────────

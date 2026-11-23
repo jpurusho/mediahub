@@ -225,10 +225,18 @@ export default function Library() {
     }
   }
 
-  async function handleRemoveFolder(folderId: number) {
+  async function handleRemoveFolder(folderId: number, folderPath: string) {
     try {
-      await window.api.indexedFolders.delete(folderId);
-      setSnackbarMessage('Folder removed');
+      // Delete returns count of items removed
+      const result = await window.api.indexedFolders.delete(folderId);
+      const itemCount = result?.itemsDeleted || 0;
+
+      setSnackbarMessage(
+        itemCount > 0
+          ? `Folder removed. ${itemCount} media item${itemCount === 1 ? '' : 's'} deleted from library.`
+          : 'Folder removed.'
+      );
+
       loadIndexedFolders();
       loadLibrary(); // Refresh library
     } catch (error) {
@@ -950,8 +958,14 @@ export default function Library() {
                   <IconButton
                     color="error"
                     onClick={() => {
-                      if (window.confirm(`Remove folder: ${folder.path}?\n\nThis will not delete files, only remove them from the library.`)) {
-                        handleRemoveFolder(folder.id);
+                      if (window.confirm(
+                        `Remove folder: ${folder.path}?\n\n` +
+                        `• Media items from this folder will be removed from the library\n` +
+                        `• Your actual files will NOT be deleted from disk\n` +
+                        `• File watcher will be stopped\n\n` +
+                        `Continue?`
+                      )) {
+                        handleRemoveFolder(folder.id, folder.path);
                       }
                     }}
                     title="Remove folder"
