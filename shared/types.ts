@@ -161,6 +161,7 @@ export interface LocalPlaylistItem {
 
 export interface LibraryItem {
   videoId: string;
+  mediaItemId?: number; // ID in media_items table (for new unified media system)
   title: string;
   channel: string;
   channelId?: string;

@@ -19,6 +19,7 @@ import {
   upsertLibraryItem, toRelativePath,
   getMediaItems, getMediaItem, getMediaItemByPath, getMediaItemByYoutubeId, deleteMediaItems, getMediaItemStats,
   getIndexedFolders, getIndexedFolder, addIndexedFolder, updateIndexedFolder, deleteIndexedFolder,
+  resolveFilePath,
 } from './services/database';
 import { SyncManager } from './services/sync/sync-manager';
 import { transcriptionQueueManager } from './services/transcription-queue-manager';
@@ -451,7 +452,30 @@ export function registerIpcHandlers(): void {
     return getMediaItemByYoutubeId(videoId);
   });
 
-  ipcMain.handle('media:delete', (_event, ids: number[]) => {
+  ipcMain.handle('media:delete', (_event, ids: number[], deleteFiles?: boolean) => {
+    if (deleteFiles) {
+      // Get file paths before deleting from database
+      const fs = require('fs');
+      ids.forEach(id => {
+        const item = getMediaItem(id);
+        if (item && item.filePath) {
+          try {
+            const resolvedPath = resolveFilePath(item.filePath);
+            if (fs.existsSync(resolvedPath)) {
+              fs.unlinkSync(resolvedPath);
+              logger.info('[IPC] Deleted file from disk', { filePath: resolvedPath });
+            }
+          } catch (error: any) {
+            logger.error('[IPC] Failed to delete file from disk', {
+              filePath: item.filePath,
+              error: error.message
+            });
+          }
+        }
+      });
+    }
+
+    // Delete from database
     deleteMediaItems(ids);
   });
 

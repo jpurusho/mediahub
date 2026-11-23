@@ -171,6 +171,7 @@ export default function Library() {
       // Convert MediaItem[] to LibraryItem[] format for compatibility
       const libraryItems: LibraryItem[] = mediaItems.map(m => ({
         videoId: m.youtubeVideoId || m.sourceId || `local-${m.id}`,
+        mediaItemId: m.id, // Store numeric ID for deletion
         title: m.title,
         channel: m.youtubeChannel || 'Local File',
         channelId: m.youtubeChannelId,
@@ -250,9 +251,30 @@ export default function Library() {
   }
 
   async function handleDeleteConfirm() {
-    await window.api.library.delete(Array.from(selected), deleteFiles);
+    // Get media item IDs for selected items
+    const selectedItems = items.filter(item => selected.has(item.videoId));
+    const mediaItemIds = selectedItems
+      .map(item => item.mediaItemId)
+      .filter((id): id is number => id !== undefined);
+
+    // Delete from media_items table
+    if (mediaItemIds.length > 0) {
+      await window.api.media.delete(mediaItemIds, deleteFiles);
+    }
+
+    // Also try legacy library delete for any old YouTube-only items
+    const videoIds = Array.from(selected);
+    if (videoIds.length > 0) {
+      try {
+        await window.api.library.delete(videoIds, deleteFiles);
+      } catch (e) {
+        // Ignore errors from legacy delete
+      }
+    }
+
     setDeleteDialogOpen(false);
     setDeleteFiles(false);
+    setSelected(new Set());
     loadLibrary();
   }
 
