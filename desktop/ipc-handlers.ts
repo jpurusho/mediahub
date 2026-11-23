@@ -1061,9 +1061,14 @@ export function registerIpcHandlers(): void {
       return { error: 'File not found. It may have been moved or deleted.' };
     }
 
-    // Return file:// URL for PDF.js to load
-    const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-    return { url: fileUrl };
+    try {
+      // Read PDF file as buffer and return as array for pdf.js
+      const buffer = fs.readFileSync(filePath);
+      const uint8Array = new Uint8Array(buffer);
+      return { data: Array.from(uint8Array) };
+    } catch (error: any) {
+      return { error: `Failed to read PDF file: ${error.message}` };
+    }
   });
 
   ipcMain.handle('app:getHTMLFileUrl', (_event, filePath: string) => {

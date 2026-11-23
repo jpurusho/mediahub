@@ -40,13 +40,16 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
           return;
         }
 
-        if (!result.url) {
-          setError('No PDF URL returned');
+        if (!result.data) {
+          setError('No PDF data returned');
           return;
         }
 
-        // Load PDF document
-        const loadingTask = pdfjsLib.getDocument(result.url);
+        // Convert array back to Uint8Array for pdf.js
+        const uint8Array = new Uint8Array(result.data);
+
+        // Load PDF document from data
+        const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
         const pdf = await loadingTask.promise;
 
         setPdfDoc(pdf);
