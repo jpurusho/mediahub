@@ -463,6 +463,7 @@ export interface ElectronAPI {
     getImageFileUrl: (filePath: string) => Promise<{ url?: string; error?: string }>;
     getHTMLFileUrl: (filePath: string) => Promise<{ content?: string; basePath?: string; filePath?: string; error?: string }>;
     getJSONFileContent: (filePath: string) => Promise<{ content?: string; error?: string }>;
+    getMarkdownFileContent: (filePath: string) => Promise<{ content?: string; error?: string }>;
     fileExists: (filePath: string) => Promise<boolean>;
     convertToMp4: (filePath: string) => Promise<{ success?: boolean; outputPath?: string; error?: string; message?: string }>;
     openInSystemPlayer: (filePath: string) => Promise<void>;

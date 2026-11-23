@@ -27,6 +27,7 @@ import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
 import ImageViewer from '../components/ImageViewer/ImageViewer';
 import HTMLViewer from '../components/HTMLViewer/HTMLViewer';
 import JSONViewer from '../components/JSONViewer/JSONViewer';
+import MarkdownViewer from '../components/MarkdownViewer/MarkdownViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
 import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
@@ -89,6 +90,7 @@ export default function Library() {
   const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
   const [viewingHTML, setViewingHTML] = useState<LibraryItem | null>(null);
   const [viewingJSON, setViewingJSON] = useState<LibraryItem | null>(null);
+  const [viewingMarkdown, setViewingMarkdown] = useState<LibraryItem | null>(null);
   const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
   const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
 
@@ -353,6 +355,8 @@ export default function Library() {
       setViewingHTML(item);
     } else if (itemType === 'json') {
       setViewingJSON(item);
+    } else if (itemType === 'markdown') {
+      setViewingMarkdown(item);
     } else if (itemType === 'video' || itemType === 'audio') {
       setPlayingItem(item);
     } else {
@@ -800,6 +804,14 @@ export default function Library() {
           filePath={viewingJSON.filePath}
           title={viewingJSON.title}
           onClose={() => setViewingJSON(null)}
+        />
+      )}
+
+      {viewingMarkdown && (
+        <MarkdownViewer
+          filePath={viewingMarkdown.filePath}
+          title={viewingMarkdown.title}
+          onClose={() => setViewingMarkdown(null)}
         />
       )}
 
