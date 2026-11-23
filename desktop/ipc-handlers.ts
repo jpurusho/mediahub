@@ -1018,10 +1018,22 @@ export function registerIpcHandlers(): void {
     if (!fs.existsSync(filePath)) {
       return { error: 'File not found. It may have been moved or deleted.' };
     }
-    // Use file:// protocol for HTML files so relative resources (CSS, JS, images) work
-    // Convert to proper file URL format
-    const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-    return { url: fileUrl };
+
+    try {
+      // Read HTML content and return it with base path
+      // This avoids file:// security restrictions in iframe
+      const htmlContent = fs.readFileSync(filePath, 'utf-8');
+      const baseDir = path.dirname(filePath);
+      const basePath = `file://${baseDir.replace(/\\/g, '/')}/`;
+
+      return {
+        content: htmlContent,
+        basePath: basePath,
+        filePath: filePath
+      };
+    } catch (error: any) {
+      return { error: `Failed to read HTML file: ${error.message}` };
+    }
   });
 
   ipcMain.handle('app:fileExists', (_event, filePath: string) => {

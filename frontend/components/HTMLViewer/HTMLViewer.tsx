@@ -11,26 +11,32 @@ interface HTMLViewerProps {
 }
 
 export default function HTMLViewer({ filePath, title, onClose }: HTMLViewerProps) {
-  const [htmlUrl, setHtmlUrl] = useState<string>('');
+  const [htmlContent, setHtmlContent] = useState<string>('');
+  const [basePath, setBasePath] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [key, setKey] = useState(0); // For forcing iframe reload
 
-  // Load HTML file URL
+  // Load HTML file content
   useEffect(() => {
     async function loadHTML() {
       setLoading(true);
       setError('');
 
       try {
-        // Use file:// protocol for HTML files so relative resources work
         const result = await window.api.app.getHTMLFileUrl(filePath);
         if (result.error) {
           setError(result.error);
-        } else if (result.url) {
-          setHtmlUrl(result.url);
+        } else if (result.content && result.basePath) {
+          // Inject base tag for relative URLs to work
+          const contentWithBase = result.content.replace(
+            /<head>/i,
+            `<head><base href="${result.basePath}">`
+          ) || result.content;
+          setHtmlContent(contentWithBase);
+          setBasePath(result.basePath);
         } else {
-          setError('Failed to get HTML URL');
+          setError('Failed to get HTML content');
         }
       } catch (err) {
         console.error('Failed to load HTML:', err);
@@ -63,10 +69,9 @@ export default function HTMLViewer({ filePath, title, onClose }: HTMLViewerProps
   }, []);
 
   const handleOpenExternal = useCallback(() => {
-    if (htmlUrl) {
-      window.open(htmlUrl, '_blank');
-    }
-  }, [htmlUrl]);
+    // Open the original file path in system browser
+    window.api.app.openExternal(`file://${filePath}`);
+  }, [filePath]);
 
   return (
     // Full-screen overlay
@@ -189,10 +194,10 @@ export default function HTMLViewer({ filePath, title, onClose }: HTMLViewerProps
           </Box>
         )}
 
-        {!loading && !error && htmlUrl && (
+        {!loading && !error && htmlContent && (
           <iframe
             key={key}
-            src={htmlUrl}
+            srcDoc={htmlContent}
             title={title}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             style={{
