@@ -73,12 +73,21 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
     async function renderPage() {
       try {
         const page = await pdfDoc.getPage(currentPage);
-        const viewport = page.getViewport({ scale });
+
+        // Use higher pixel ratio for better quality (retina displays)
+        const pixelRatio = window.devicePixelRatio || 2;
+        const viewport = page.getViewport({ scale: scale * pixelRatio });
+
         const canvas = canvasRef.current!;
         const context = canvas.getContext('2d')!;
 
+        // Set actual canvas size (high resolution)
         canvas.height = viewport.height;
         canvas.width = viewport.width;
+
+        // Set display size (CSS size)
+        canvas.style.height = `${viewport.height / pixelRatio}px`;
+        canvas.style.width = `${viewport.width / pixelRatio}px`;
 
         const renderContext = {
           canvasContext: context,
