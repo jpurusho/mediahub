@@ -1078,6 +1078,25 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle('app:getJSONFileContent', (_event, filePath: string) => {
+    const fs = require('fs');
+    // If filePath is relative (just filename), construct absolute path
+    if (!path.isAbsolute(filePath)) {
+      const outputDir = getOutputDir();
+      filePath = path.join(outputDir, filePath);
+    }
+    if (!fs.existsSync(filePath)) {
+      return { error: 'File not found. It may have been moved or deleted.' };
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return { content };
+    } catch (error: any) {
+      return { error: `Failed to read JSON file: ${error.message}` };
+    }
+  });
+
   ipcMain.handle('app:fileExists', (_event, filePath: string) => {
     const fs = require('fs');
     // If filePath is relative (just filename), construct absolute path

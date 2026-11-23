@@ -23,13 +23,19 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
       setError('');
 
       try {
-        const fs = window.require?.('fs');
-        if (!fs) {
-          setError('File system access not available');
+        const result = await window.api.app.getJSONFileContent(filePath);
+
+        if (result.error) {
+          setError(result.error);
           return;
         }
 
-        const content = fs.readFileSync(filePath, 'utf-8');
+        if (!result.content) {
+          setError('No content returned');
+          return;
+        }
+
+        const content = result.content;
         setJsonContent(content);
 
         // Try to parse and format

@@ -250,6 +250,7 @@ const api: ElectronAPI = {
     getVideoFileUrl: (filePath: string) => ipcRenderer.invoke('app:getVideoFileUrl', filePath),
     getImageFileUrl: (filePath: string) => ipcRenderer.invoke('app:getImageFileUrl', filePath),
     getHTMLFileUrl: (filePath: string) => ipcRenderer.invoke('app:getHTMLFileUrl', filePath),
+    getJSONFileContent: (filePath: string) => ipcRenderer.invoke('app:getJSONFileContent', filePath),
     fileExists: (filePath: string) => ipcRenderer.invoke('app:fileExists', filePath),
     convertToMp4: (filePath: string) => ipcRenderer.invoke('app:convertToMp4', filePath),
     openInSystemPlayer: (filePath: string) => ipcRenderer.invoke('app:openInSystemPlayer', filePath),
