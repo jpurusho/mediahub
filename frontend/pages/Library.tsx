@@ -26,6 +26,7 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
 import ImageViewer from '../components/ImageViewer/ImageViewer';
 import HTMLViewer from '../components/HTMLViewer/HTMLViewer';
+import JSONViewer from '../components/JSONViewer/JSONViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
 import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
@@ -87,6 +88,7 @@ export default function Library() {
   const [indexingProgress, setIndexingProgress] = useState({ filesFound: 0, filesProcessed: 0, filesFailed: 0, currentFile: '', totalSize: 0 });
   const [viewingImages, setViewingImages] = useState<{ images: LibraryItem[], currentIndex: number } | null>(null);
   const [viewingHTML, setViewingHTML] = useState<LibraryItem | null>(null);
+  const [viewingJSON, setViewingJSON] = useState<LibraryItem | null>(null);
   const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
   const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
 
@@ -300,7 +302,7 @@ export default function Library() {
   }
 
   // Helper to detect media type from file extension or format
-  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'unknown' {
+  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'json' | 'markdown' | 'unknown' {
     const ext = item.filePath ? item.filePath.split('.').pop()?.toLowerCase() : '';
     const format = item.format?.toLowerCase();
 
@@ -311,6 +313,14 @@ export default function Library() {
     // Check for HTML extensions
     const htmlExts = ['html', 'htm'];
     if (ext && htmlExts.includes(ext)) return 'html';
+
+    // Check for JSON extensions
+    const jsonExts = ['json'];
+    if (ext && jsonExts.includes(ext)) return 'json';
+
+    // Check for Markdown extensions
+    const markdownExts = ['md', 'markdown'];
+    if (ext && markdownExts.includes(ext)) return 'markdown';
 
     // Check for audio extensions/formats
     const audioExts = ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'opus', 'wma'];
@@ -341,6 +351,8 @@ export default function Library() {
       setViewingImages({ images: imageItems, currentIndex: Math.max(0, currentIndex) });
     } else if (itemType === 'html') {
       setViewingHTML(item);
+    } else if (itemType === 'json') {
+      setViewingJSON(item);
     } else if (itemType === 'video' || itemType === 'audio') {
       setPlayingItem(item);
     } else {
@@ -779,6 +791,14 @@ export default function Library() {
           filePath={viewingHTML.filePath}
           title={viewingHTML.title}
           onClose={() => setViewingHTML(null)}
+        />
+      )}
+
+      {viewingJSON && (
+        <JSONViewer
+          filePath={viewingJSON.filePath}
+          title={viewingJSON.title}
+          onClose={() => setViewingJSON(null)}
         />
       )}
 

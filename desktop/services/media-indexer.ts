@@ -18,6 +18,8 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.m4v', '.flv
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.opus', '.wma', '.alac'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff'];
 const HTML_EXTENSIONS = ['.html', '.htm'];
+const JSON_EXTENSIONS = ['.json'];
+const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
 
 // Folders to skip during scanning
 const SKIP_FOLDERS = new Set([
@@ -235,7 +237,8 @@ export class MediaIndexer extends EventEmitter {
           metadata = await this.extractImageMetadata(filePath);
           break;
         case 'html':
-          // HTML files don't need metadata extraction
+        case 'document':
+          // HTML and document files don't need metadata extraction
           // Title comes from filename, no duration/dimensions needed
           break;
       }
@@ -352,7 +355,7 @@ export class MediaIndexer extends EventEmitter {
   /**
    * Detect media type from file extension and MIME type
    */
-  async detectMediaType(filePath: string): Promise<'video' | 'audio' | 'image' | 'html' | null> {
+  async detectMediaType(filePath: string): Promise<'video' | 'audio' | 'image' | 'html' | 'document' | null> {
     const ext = path.extname(filePath).toLowerCase();
 
     // Quick extension check first (fast path)
@@ -360,6 +363,8 @@ export class MediaIndexer extends EventEmitter {
     if (AUDIO_EXTENSIONS.includes(ext)) return 'audio';
     if (IMAGE_EXTENSIONS.includes(ext)) return 'image';
     if (HTML_EXTENSIONS.includes(ext)) return 'html';
+    if (JSON_EXTENSIONS.includes(ext)) return 'document';
+    if (MARKDOWN_EXTENSIONS.includes(ext)) return 'document';
 
     // Fallback: Use file-type library (reads file header)
     try {
@@ -370,6 +375,8 @@ export class MediaIndexer extends EventEmitter {
       if (type.mime.startsWith('audio/')) return 'audio';
       if (type.mime.startsWith('image/')) return 'image';
       if (type.mime === 'text/html') return 'html';
+      if (type.mime === 'application/json') return 'document';
+      if (type.mime === 'text/markdown') return 'document';
     } catch (error) {
       console.error(`[MediaIndexer] Failed to detect file type for ${filePath}:`, error);
     }
@@ -492,7 +499,9 @@ export class MediaIndexer extends EventEmitter {
             VIDEO_EXTENSIONS.includes(ext) ||
             AUDIO_EXTENSIONS.includes(ext) ||
             IMAGE_EXTENSIONS.includes(ext) ||
-            HTML_EXTENSIONS.includes(ext)
+            HTML_EXTENSIONS.includes(ext) ||
+            JSON_EXTENSIONS.includes(ext) ||
+            MARKDOWN_EXTENSIONS.includes(ext)
           ) {
             files.push(fullPath);
           }
