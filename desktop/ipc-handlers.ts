@@ -897,14 +897,20 @@ export function registerIpcHandlers(): void {
         await shell.openExternal(pathOrUrl);
         logger.info('[IPC] Opened URL in browser', { url: pathOrUrl });
       } else {
+        // Handle file:// URLs by stripping the prefix
+        let filePath = pathOrUrl;
+        if (filePath.startsWith('file://')) {
+          filePath = filePath.substring(7); // Remove 'file://' prefix
+        }
+
         // Open file with default application
-        const result = await shell.openPath(pathOrUrl);
+        const result = await shell.openPath(filePath);
         if (result) {
           // openPath returns error string if it fails, empty string if success
-          logger.error('[IPC] Failed to open file', { path: pathOrUrl, error: result });
+          logger.error('[IPC] Failed to open file', { path: filePath, error: result });
           throw new Error(`Failed to open file: ${result}`);
         }
-        logger.info('[IPC] Opened file with default app', { path: pathOrUrl });
+        logger.info('[IPC] Opened file with default app', { path: filePath });
       }
     } catch (error: any) {
       logger.error('[IPC] Error opening external', { pathOrUrl, error: error.message });

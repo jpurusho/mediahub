@@ -125,8 +125,12 @@ export default function MarkdownViewer({ filePath, title, onClose }: MarkdownVie
     }
   }, [markdownContent]);
 
-  const handleOpenExternal = useCallback(() => {
-    window.api.app.openExternal(`file://${filePath}`);
+  const handleOpenExternal = useCallback(async () => {
+    try {
+      await window.api.app.openExternal(filePath);
+    } catch (err) {
+      console.error('[MarkdownViewer] Failed to open external:', err);
+    }
   }, [filePath]);
 
   return (

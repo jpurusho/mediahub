@@ -96,8 +96,12 @@ export default function JSONViewer({ filePath, title, onClose }: JSONViewerProps
     }
   }, [formatted, jsonContent]);
 
-  const handleOpenExternal = useCallback(() => {
-    window.api.app.openExternal(`file://${filePath}`);
+  const handleOpenExternal = useCallback(async () => {
+    try {
+      await window.api.app.openExternal(filePath);
+    } catch (err) {
+      console.error('[JSONViewer] Failed to open external:', err);
+    }
   }, [filePath]);
 
   // Syntax highlight JSON

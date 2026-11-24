@@ -68,9 +68,13 @@ export default function HTMLViewer({ filePath, title, onClose }: HTMLViewerProps
     setKey(prev => prev + 1); // Force iframe reload
   }, []);
 
-  const handleOpenExternal = useCallback(() => {
-    // Open the original file path in system browser
-    window.api.app.openExternal(`file://${filePath}`);
+  const handleOpenExternal = useCallback(async () => {
+    try {
+      // Open the original file path in system browser
+      await window.api.app.openExternal(filePath);
+    } catch (err) {
+      console.error('[HTMLViewer] Failed to open external:', err);
+    }
   }, [filePath]);
 
   return (
