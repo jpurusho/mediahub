@@ -27,20 +27,26 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   const [copied, setCopied] = useState(false);
   const [maximized, setMaximized] = useState(false);
 
+  console.log('[TextViewer] RENDER - maximized:', maximized, 'copied:', copied, 'loading:', loading);
+
   // Load text file
   useEffect(() => {
+    console.log('[TextViewer] MOUNT - Loading file:', filePath);
     async function loadText() {
       setLoading(true);
       setError('');
 
       try {
+        console.log('[TextViewer] Fetching file content...');
         const result = await window.api.app.getTextFileContent(filePath);
 
         if (result.error) {
+          console.error('[TextViewer] File load error:', result.error);
           setError(result.error);
           return;
         }
 
+        console.log('[TextViewer] File loaded successfully, length:', result.content.length);
         setTextContent(result.content);
       } catch (err: any) {
         console.error('[TextViewer] Failed to load text:', err);
@@ -54,12 +60,18 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   }, [filePath]);
 
   const handleCopy = useCallback(async () => {
+    console.log('[TextViewer] ===== COPY BUTTON CLICKED =====');
+    console.log('[TextViewer] Text length to copy:', textContent.length);
     try {
       await navigator.clipboard.writeText(textContent);
+      console.log('[TextViewer] ✓ Clipboard write successful');
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => {
+        console.log('[TextViewer] Resetting copied state');
+        setCopied(false);
+      }, 2000);
     } catch (err) {
-      console.error('[TextViewer] Clipboard write failed, trying fallback:', err);
+      console.error('[TextViewer] ✗ Clipboard write failed, trying fallback:', err);
       // Fallback method
       try {
         const textArea = document.createElement('textarea');
@@ -70,39 +82,60 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
+        console.log('[TextViewer] ✓ Fallback copy successful');
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (fallbackErr) {
-        console.error('[TextViewer] Fallback copy also failed:', fallbackErr);
+        console.error('[TextViewer] ✗ Fallback copy also failed:', fallbackErr);
         setError('Failed to copy to clipboard. Please select and copy manually.');
       }
     }
   }, [textContent]);
 
   const handleOpenExternal = useCallback(async () => {
-    await window.api.app.openExternal(filePath);
+    console.log('[TextViewer] ===== OPEN EXTERNAL CLICKED =====');
+    console.log('[TextViewer] File path:', filePath);
+    try {
+      await window.api.app.openExternal(filePath);
+      console.log('[TextViewer] ✓ Open external successful');
+    } catch (err) {
+      console.error('[TextViewer] ✗ Failed to open external:', err);
+    }
   }, [filePath]);
 
   const toggleMaximize = useCallback(() => {
-    setMaximized((prev) => !prev);
+    console.log('[TextViewer] ===== MAXIMIZE/RESTORE CLICKED =====');
+    setMaximized((prev) => {
+      console.log('[TextViewer] Maximized changing from', prev, 'to', !prev);
+      return !prev;
+    });
   }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
+    console.log('[TextViewer] Setting up keyboard listener');
     function handleKeyDown(e: KeyboardEvent) {
+      console.log('[TextViewer] Key pressed:', e.key);
       if (e.key === 'Escape') {
+        console.log('[TextViewer] ===== ESC KEY PRESSED - CLOSING =====');
         onClose();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      console.log('[TextViewer] Removing keyboard listener');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
   return (
     <Dialog
       open={true}
-      onClose={onClose}
+      onClose={(event, reason) => {
+        console.log('[TextViewer] 🖱️ DIALOG ONCLOSE FIRED - reason:', reason, 'event:', event);
+        onClose();
+      }}
       maxWidth={false}
       PaperProps={{
         sx: {
@@ -137,7 +170,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton
-            onClick={handleCopy}
+            onClick={(e) => {
+              console.log('[TextViewer] 🖱️ COPY BUTTON ONCLICK FIRED', e);
+              handleCopy();
+            }}
             sx={{ color: copied ? '#4caf50' : '#fff' }}
             size="small"
             title={copied ? 'Copied!' : 'Copy to clipboard'}
@@ -150,7 +186,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             </Typography>
           )}
           <IconButton
-            onClick={handleOpenExternal}
+            onClick={(e) => {
+              console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON ONCLICK FIRED', e);
+              handleOpenExternal();
+            }}
             sx={{ color: '#fff' }}
             size="small"
             title="Open in editor"
@@ -158,7 +197,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             <OpenInNewIcon fontSize="small" />
           </IconButton>
           <IconButton
-            onClick={toggleMaximize}
+            onClick={(e) => {
+              console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON ONCLICK FIRED', e);
+              toggleMaximize();
+            }}
             sx={{ color: '#fff' }}
             size="small"
             title={maximized ? 'Restore' : 'Maximize'}
@@ -166,7 +208,11 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
           </IconButton>
           <IconButton
-            onClick={onClose}
+            onClick={(e) => {
+              console.log('[TextViewer] 🖱️ CLOSE BUTTON ONCLICK FIRED', e);
+              console.log('[TextViewer] ===== CLOSE BUTTON CLICKED =====');
+              onClose();
+            }}
             sx={{ color: '#fff', ml: 1 }}
             size="small"
             title="Close (ESC)"
