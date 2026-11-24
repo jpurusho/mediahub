@@ -454,8 +454,40 @@ export default function Library() {
     }
   }
 
+  // Helper: Convert wildcard pattern to regex
+  function wildcardToRegex(pattern: string): RegExp {
+    // Escape special regex characters except * and ?
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    // Convert * to .* and ? to .
+    const regexPattern = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+    return new RegExp(`^${regexPattern}$`, 'i'); // case-insensitive
+  }
+
+  // Check if filter contains wildcards
+  function hasWildcards(str: string): boolean {
+    return str.includes('*') || str.includes('?');
+  }
+
+  // Filter with wildcard support
   const filtered = filter
-    ? items.filter(r => r.title.toLowerCase().includes(filter.toLowerCase()) || r.channel.toLowerCase().includes(filter.toLowerCase()))
+    ? items.filter(r => {
+        const searchTerm = filter.toLowerCase();
+
+        // If wildcards present, use pattern matching on filename
+        if (hasWildcards(filter)) {
+          const regex = wildcardToRegex(filter);
+          const filename = r.filePath ? r.filePath.split('/').pop() || '' : '';
+          return regex.test(filename);
+        }
+
+        // Otherwise, simple includes search on title, channel, and filename
+        const filename = r.filePath ? r.filePath.split('/').pop()?.toLowerCase() || '' : '';
+        return (
+          r.title.toLowerCase().includes(searchTerm) ||
+          r.channel.toLowerCase().includes(searchTerm) ||
+          filename.includes(searchTerm)
+        );
+      })
     : items;
 
   const sorted = [...filtered].sort((a, b) => {
@@ -569,7 +601,7 @@ export default function Library() {
         <TextField
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter by title or channel..."
+          placeholder="Filter by title, filename... (supports *.log, test*, etc.)"
           size="small"
           sx={{ flex: 1, minWidth: 200 }}
           InputProps={{
