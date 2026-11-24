@@ -1,5 +1,5 @@
-appId: com.ytd.app
-productName: ytd
+appId: com.mediahub.app
+productName: MediaHub
 copyright: Copyright © 2026 Jerome Purushotham
 
 directories:
@@ -51,4 +51,4 @@ nsis:
 publish:
   provider: github
   owner: jpurusho
-  repo: ytd
+  repo: mediahub
