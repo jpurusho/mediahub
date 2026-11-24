@@ -31,6 +31,7 @@ import JSONViewer from '../components/JSONViewer/JSONViewer';
 import MarkdownViewer from '../components/MarkdownViewer/MarkdownViewer';
 import PDFViewer from '../components/PDFViewer/PDFViewer';
 import TextViewer from '../components/TextViewer/TextViewer';
+import { PowerPointViewer } from '../components/PowerPointViewer/PowerPointViewer';
 import AddToPlaylistDialog from '../components/AddToPlaylistDialog/AddToPlaylistDialog';
 import type { LibraryItem, DownloadRecord, VideoInfo, MediaItem } from '@shared/types';
 
@@ -96,6 +97,7 @@ export default function Library() {
   const [viewingMarkdown, setViewingMarkdown] = useState<LibraryItem | null>(null);
   const [viewingPDF, setViewingPDF] = useState<LibraryItem | null>(null);
   const [viewingText, setViewingText] = useState<LibraryItem | null>(null);
+  const [viewingPowerPoint, setViewingPowerPoint] = useState<LibraryItem | null>(null);
   const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
   const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
   const [rescanning, setRescanning] = useState<Set<number>>(new Set());
@@ -337,7 +339,7 @@ export default function Library() {
   }
 
   // Helper to detect media type from file extension or format
-  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'json' | 'markdown' | 'pdf' | 'text' | 'unknown' {
+  function getItemMediaType(item: LibraryItem): 'video' | 'audio' | 'image' | 'html' | 'json' | 'markdown' | 'pdf' | 'text' | 'powerpoint' | 'unknown' {
     const ext = item.filePath ? item.filePath.split('.').pop()?.toLowerCase() : '';
     const format = item.format?.toLowerCase();
 
@@ -364,6 +366,10 @@ export default function Library() {
     // Check for text extensions
     const textExts = ['txt', 'log'];
     if (ext && textExts.includes(ext)) return 'text';
+
+    // Check for PowerPoint extensions
+    const powerpointExts = ['ppt', 'pptx'];
+    if (ext && powerpointExts.includes(ext)) return 'powerpoint';
 
     // Check for audio extensions/formats
     const audioExts = ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg', 'opus', 'wma'];
@@ -402,6 +408,8 @@ export default function Library() {
       setViewingPDF(item);
     } else if (itemType === 'text') {
       setViewingText(item);
+    } else if (itemType === 'powerpoint') {
+      setViewingPowerPoint(item);
     } else if (itemType === 'video' || itemType === 'audio') {
       setPlayingItem(item);
     } else {
@@ -905,6 +913,13 @@ export default function Library() {
           filePath={viewingText.filePath}
           title={viewingText.title}
           onClose={() => setViewingText(null)}
+        />
+      )}
+
+      {viewingPowerPoint && (
+        <PowerPointViewer
+          filePath={viewingPowerPoint.filePath}
+          onClose={() => setViewingPowerPoint(null)}
         />
       )}
 

@@ -20,6 +20,7 @@ const JSON_EXTENSIONS = ['.json'];
 const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
 const PDF_EXTENSIONS = ['.pdf'];
 const TEXT_EXTENSIONS = ['.txt', '.log'];
+const POWERPOINT_EXTENSIONS = ['.ppt', '.pptx'];
 
 const ALL_MEDIA_EXTENSIONS = new Set([
   ...VIDEO_EXTENSIONS,
@@ -30,6 +31,7 @@ const ALL_MEDIA_EXTENSIONS = new Set([
   ...MARKDOWN_EXTENSIONS,
   ...PDF_EXTENSIONS,
   ...TEXT_EXTENSIONS,
+  ...POWERPOINT_EXTENSIONS,
 ]);
 
 /**
