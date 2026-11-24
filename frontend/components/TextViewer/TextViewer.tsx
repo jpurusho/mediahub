@@ -1,16 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Box,
-  IconButton,
-  Typography,
-  CircularProgress,
-} from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, IconButton, Typography, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import MaximizeIcon from '@mui/icons-material/Fullscreen';
-import RestoreIcon from '@mui/icons-material/FullscreenExit';
-import Draggable from 'react-draggable';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 interface TextViewerProps {
   filePath: string;
@@ -23,114 +17,62 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [maximized, setMaximized] = useState(false);
-  const nodeRef = useRef(null);
-
-  console.log('[TextViewer] RENDER - maximized:', maximized, 'copied:', copied, 'loading:', loading);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Load text file
   useEffect(() => {
-    console.log('[TextViewer] MOUNT - Loading file:', filePath);
     async function loadText() {
-      setLoading(true);
-      setError('');
-
       try {
-        console.log('[TextViewer] Fetching file content...');
         const result = await window.api.app.getTextFileContent(filePath);
-
         if (result.error) {
-          console.error('[TextViewer] File load error:', result.error);
           setError(result.error);
-          return;
+        } else {
+          setTextContent(result.content);
         }
-
-        console.log('[TextViewer] File loaded successfully, length:', result.content.length);
-        setTextContent(result.content);
       } catch (err: any) {
-        console.error('[TextViewer] Failed to load text:', err);
-        setError(err?.message || 'Failed to load text file');
+        setError(err?.message || 'Failed to load file');
       } finally {
         setLoading(false);
       }
     }
-
     loadText();
   }, [filePath]);
 
   const handleCopy = useCallback(async () => {
-    console.log('[TextViewer] ===== COPY BUTTON CLICKED =====');
-    console.log('[TextViewer] Text length to copy:', textContent.length);
     try {
       await navigator.clipboard.writeText(textContent);
-      console.log('[TextViewer] ✓ Clipboard write successful');
       setCopied(true);
-      setTimeout(() => {
-        console.log('[TextViewer] Resetting copied state');
-        setCopied(false);
-      }, 2000);
-    } catch (err) {
-      console.error('[TextViewer] ✗ Clipboard write failed, trying fallback:', err);
-      try {
-        const textArea = document.createElement('textarea');
-        textArea.value = textContent;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        console.log('[TextViewer] ✓ Fallback copy successful');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackErr) {
-        console.error('[TextViewer] ✗ Fallback copy also failed:', fallbackErr);
-        setError('Failed to copy to clipboard. Please select and copy manually.');
-      }
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = textContent;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   }, [textContent]);
 
   const handleOpenExternal = useCallback(async () => {
-    console.log('[TextViewer] ===== OPEN EXTERNAL CLICKED =====');
-    console.log('[TextViewer] File path:', filePath);
     try {
       await window.api.app.openExternal(filePath);
-      console.log('[TextViewer] ✓ Open external successful');
     } catch (err) {
-      console.error('[TextViewer] ✗ Failed to open external:', err);
+      console.error('Failed to open external:', err);
     }
   }, [filePath]);
 
-  const toggleMaximize = useCallback(() => {
-    console.log('[TextViewer] ===== MAXIMIZE/RESTORE CLICKED =====');
-    console.log('[TextViewer] Current maximized state:', maximized);
-    setMaximized((prev) => {
-      console.log('[TextViewer] ⚡ Setting maximized to:', !prev);
-      return !prev;
-    });
-  }, [maximized]);
-
-  // Log when maximized state changes
+  // ESC to close
   useEffect(() => {
-    console.log('[TextViewer] ⚡⚡⚡ MAXIMIZED STATE EFFECT - maximized is now:', maximized);
-    console.log('[TextViewer] Window will be:', maximized ? '100vw x 100vh' : '90vw x 85vh');
-  }, [maximized]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    console.log('[TextViewer] Setting up keyboard listener');
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        console.log('[TextViewer] ===== ESC KEY PRESSED - CLOSING =====');
-        onClose();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      console.log('[TextViewer] Removing keyboard listener');
-      window.removeEventListener('keydown', handleKeyDown);
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
   return (
@@ -141,196 +83,94 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
         left: 0,
         right: 0,
         bottom: 0,
-        bgcolor: 'rgba(0, 0, 0, 0.5)',
+        bgcolor: 'rgba(0, 0, 0, 0.8)',
         zIndex: 9999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        pointerEvents: 'auto',
-      }}
-      onMouseDown={(e) => {
-        console.log('[TextViewer] 🖱️ BACKDROP MOUSEDOWN', e.target);
+        p: 2,
       }}
       onClick={(e) => {
-        console.log('[TextViewer] 🖱️ BACKDROP CLICK', e.target, e.currentTarget);
-        if (e.target === e.currentTarget) {
-          console.log('[TextViewer] Backdrop direct click - closing');
-          onClose();
-        }
+        if (e.target === e.currentTarget) onClose();
       }}
     >
-      <Draggable
-        nodeRef={nodeRef}
-        handle="#draggable-title-text"
-        disabled={maximized}
-        bounds="parent"
+      <Box
+        sx={{
+          width: fullscreen ? '100%' : '90%',
+          height: fullscreen ? '100%' : '85%',
+          maxWidth: fullscreen ? '100%' : '1400px',
+          maxHeight: fullscreen ? '100%' : '900px',
+          bgcolor: '#1e1e1e',
+          borderRadius: fullscreen ? 0 : 2,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: 24,
+        }}
       >
-        <Box
-          ref={nodeRef}
-          sx={{
-            width: maximized ? '100vw' : '90vw',
-            height: maximized ? '100vh' : '85vh',
-            maxWidth: maximized ? '100vw' : '1600px',
-            maxHeight: maximized ? '100vh' : '900px',
-            bgcolor: '#1e1e1e',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: 24,
-            pointerEvents: 'auto',
-            position: maximized ? 'fixed' : 'relative',
-            top: maximized ? 0 : 'auto',
-            left: maximized ? 0 : 'auto',
-            zIndex: 10000,
-          }}
-          onMouseDown={(e) => {
-            console.log('[TextViewer] 🖱️ CONTENT BOX MOUSEDOWN', e.target);
-          }}
-          onClick={(e) => {
-            console.log('[TextViewer] 🖱️ CONTENT BOX CLICK', e.target);
-            e.stopPropagation();
-          }}
-        >
-        {/* Title Bar - Split into two independent zones */}
+        {/* Header */}
         <Box
           sx={{
             bgcolor: '#2d2d2d',
-            borderBottom: '1px solid #3d3d3d',
-            p: 2,
+            px: 3,
+            py: 2,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            borderBottom: '1px solid #3d3d3d',
             flexShrink: 0,
           }}
         >
-          {/* ZONE 1: DRAGGABLE AREA - Drag here to move window */}
-          <Box
-            id="draggable-title-text"
-            onMouseDown={() => console.log('[TextViewer] 🖱️ DRAGGABLE TITLE AREA MOUSEDOWN - drag starting')}
-            sx={{
-              flex: 1,
-              cursor: maximized ? 'default' : 'move',
-              pointerEvents: 'auto',
-              userSelect: 'none',
-              py: 1,
-              '&:hover': {
-                bgcolor: maximized ? 'transparent' : 'rgba(255, 255, 255, 0.05)',
-              },
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
+          <Box>
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 500 }}>
               {title}
             </Typography>
             <Typography variant="caption" sx={{ color: '#888' }}>
-              {maximized ? 'Text Document (Drag disabled)' : 'Text Document (Drag to move)'}
+              Text Document
             </Typography>
           </Box>
 
-          {/* ZONE 2: BUTTON AREA - Buttons only, no dragging */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              pointerEvents: 'auto',
-              position: 'relative',
-              zIndex: 10001,
-            }}
-            onMouseDown={(e) => {
-              console.log('[TextViewer] 🖱️ BUTTON CONTAINER MOUSEDOWN');
-              e.stopPropagation(); // Prevent drag from starting
-            }}
-            onClick={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER CLICK')}
-          >
+          <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton
-              onMouseDown={(e) => console.log('[TextViewer] 🖱️ COPY BUTTON MOUSEDOWN')}
-              onClick={(e) => {
-                console.log('[TextViewer] 🖱️ COPY BUTTON CLICK');
-                handleCopy();
-              }}
+              onClick={handleCopy}
               sx={{
                 color: copied ? '#4caf50' : '#fff',
-                pointerEvents: 'auto',
-                zIndex: 1,
-                p: 2,
-                '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.2s',
+                bgcolor: copied ? 'rgba(76, 175, 80, 0.1)' : 'transparent',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
               }}
-              size="medium"
               title={copied ? 'Copied!' : 'Copy to clipboard'}
             >
               <ContentCopyIcon />
             </IconButton>
-            {copied && (
-              <Typography variant="caption" sx={{ color: '#4caf50', mr: 1 }}>
-                Copied!
-              </Typography>
-            )}
+
             <IconButton
-              onMouseDown={(e) => console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON MOUSEDOWN')}
-              onClick={(e) => {
-                console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON CLICK');
-                handleOpenExternal();
-              }}
+              onClick={handleOpenExternal}
               sx={{
                 color: '#fff',
-                pointerEvents: 'auto',
-                zIndex: 1,
-                p: 2,
-                '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.2s',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
               }}
-              size="medium"
-              title="Open in editor"
+              title="Open in external editor"
             >
               <OpenInNewIcon />
             </IconButton>
+
             <IconButton
-              onMouseDown={(e) => console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON MOUSEDOWN')}
-              onClick={(e) => {
-                console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON CLICK');
-                toggleMaximize();
-              }}
+              onClick={() => setFullscreen(!fullscreen)}
               sx={{
                 color: '#fff',
-                pointerEvents: 'auto',
-                zIndex: 1,
-                p: 2,
-                '&:hover': {
-                  bgcolor: 'rgba(255, 255, 255, 0.1)',
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.2s',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' },
               }}
-              size="medium"
-              title={maximized ? 'Restore' : 'Maximize'}
+              title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             >
-              {maximized ? <RestoreIcon /> : <MaximizeIcon />}
+              {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
             </IconButton>
+
             <IconButton
-              onMouseDown={(e) => console.log('[TextViewer] 🖱️ CLOSE BUTTON MOUSEDOWN')}
-              onClick={(e) => {
-                console.log('[TextViewer] 🖱️ CLOSE BUTTON CLICK');
-                onClose();
-              }}
+              onClick={onClose}
               sx={{
                 color: '#fff',
-                ml: 1,
-                pointerEvents: 'auto',
-                zIndex: 1,
-                p: 2,
-                '&:hover': {
-                  bgcolor: 'rgba(255, 0, 0, 0.2)',
-                  transform: 'scale(1.1)',
-                },
-                transition: 'all 0.2s',
+                '&:hover': { bgcolor: 'rgba(255, 0, 0, 0.2)' },
               }}
-              size="medium"
               title="Close (ESC)"
             >
               <CloseIcon />
@@ -338,15 +178,8 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           </Box>
         </Box>
 
-        {/* Content Area */}
-        <Box
-          sx={{
-            flex: 1,
-            overflow: 'auto',
-            display: 'flex',
-            bgcolor: '#1e1e1e',
-          }}
-        >
+        {/* Content */}
+        <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', bgcolor: '#1e1e1e' }}>
           {loading && (
             <Box
               sx={{
@@ -359,7 +192,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               }}
             >
               <CircularProgress />
-              <Typography sx={{ color: '#fff' }}>Loading text file...</Typography>
+              <Typography sx={{ color: '#888' }}>Loading...</Typography>
             </Box>
           )}
 
@@ -374,10 +207,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                 p: 4,
               }}
             >
-              <Typography color="error" variant="h6" gutterBottom>
-                Error Loading Text File
+              <Typography color="error" variant="h6">
+                Error Loading File
               </Typography>
-              <Typography sx={{ color: '#aaa' }}>{error}</Typography>
+              <Typography sx={{ color: '#888', mt: 1 }}>{error}</Typography>
             </Box>
           )}
 
@@ -387,11 +220,11 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               <Box
                 sx={{
                   minWidth: `${String(textContent.split('\n').length).length * 12 + 40}px`,
-                  p: 3,
-                  pr: 2,
+                  py: 3,
+                  px: 2,
                   bgcolor: '#21252b',
                   color: '#5c6370',
-                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                   fontSize: '14px',
                   lineHeight: 1.6,
                   textAlign: 'right',
@@ -404,21 +237,20 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                   <div key={i}>{i + 1}</div>
                 ))}
               </Box>
+
               {/* Text content */}
               <Box
                 component="pre"
                 sx={{
                   m: 0,
                   p: 3,
-                  pl: 4,
                   color: '#abb2bf',
-                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                   fontSize: '14px',
                   lineHeight: 1.6,
                   whiteSpace: 'pre',
-                  wordWrap: 'normal',
-                  overflowX: 'auto',
                   flex: 1,
+                  overflowX: 'auto',
                 }}
               >
                 {textContent}
@@ -427,7 +259,6 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           )}
         </Box>
       </Box>
-      </Draggable>
     </Box>
   );
 }
