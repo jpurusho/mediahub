@@ -189,19 +189,27 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             alignItems: 'center',
             justifyContent: 'space-between',
             flexShrink: 0,
+            pointerEvents: 'none', // Make title bar transparent to clicks
           }}
         >
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
+          <Box sx={{ flex: 1, pointerEvents: 'none' }}>
+            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500, pointerEvents: 'none' }}>
               {title}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#888' }}>
+            <Typography variant="caption" sx={{ color: '#888', pointerEvents: 'none' }}>
               Text Document
             </Typography>
           </Box>
 
           <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, pointerEvents: 'auto', position: 'relative', zIndex: 10001 }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              pointerEvents: 'auto',
+              position: 'relative',
+              zIndex: 10001,
+            }}
             onMouseDown={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER MOUSEDOWN')}
             onClick={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER CLICK')}
           >
@@ -211,11 +219,21 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                 console.log('[TextViewer] 🖱️ COPY BUTTON CLICK');
                 handleCopy();
               }}
-              sx={{ color: copied ? '#4caf50' : '#fff', pointerEvents: 'auto', zIndex: 1 }}
-              size="small"
+              sx={{
+                color: copied ? '#4caf50' : '#fff',
+                pointerEvents: 'auto',
+                zIndex: 1,
+                p: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.2s',
+              }}
+              size="medium"
               title={copied ? 'Copied!' : 'Copy to clipboard'}
             >
-              <ContentCopyIcon fontSize="small" />
+              <ContentCopyIcon />
             </IconButton>
             {copied && (
               <Typography variant="caption" sx={{ color: '#4caf50', mr: 1 }}>
@@ -223,12 +241,26 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               </Typography>
             )}
             <IconButton
-              onClick={handleOpenExternal}
-              sx={{ color: '#fff' }}
-              size="small"
+              onMouseDown={(e) => console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON MOUSEDOWN')}
+              onClick={(e) => {
+                console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON CLICK');
+                handleOpenExternal();
+              }}
+              sx={{
+                color: '#fff',
+                pointerEvents: 'auto',
+                zIndex: 1,
+                p: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.2s',
+              }}
+              size="medium"
               title="Open in editor"
             >
-              <OpenInNewIcon fontSize="small" />
+              <OpenInNewIcon />
             </IconButton>
             <IconButton
               onMouseDown={(e) => console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON MOUSEDOWN')}
@@ -236,11 +268,21 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                 console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON CLICK');
                 toggleMaximize();
               }}
-              sx={{ color: '#fff', pointerEvents: 'auto', zIndex: 1 }}
-              size="small"
+              sx={{
+                color: '#fff',
+                pointerEvents: 'auto',
+                zIndex: 1,
+                p: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.2s',
+              }}
+              size="medium"
               title={maximized ? 'Restore' : 'Maximize'}
             >
-              {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
+              {maximized ? <RestoreIcon /> : <MaximizeIcon />}
             </IconButton>
             <IconButton
               onMouseDown={(e) => console.log('[TextViewer] 🖱️ CLOSE BUTTON MOUSEDOWN')}
@@ -248,11 +290,22 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                 console.log('[TextViewer] 🖱️ CLOSE BUTTON CLICK');
                 onClose();
               }}
-              sx={{ color: '#fff', ml: 1, pointerEvents: 'auto', zIndex: 1 }}
-              size="small"
+              sx={{
+                color: '#fff',
+                ml: 1,
+                pointerEvents: 'auto',
+                zIndex: 1,
+                p: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(255, 0, 0, 0.2)',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.2s',
+              }}
+              size="medium"
               title="Close (ESC)"
             >
-              <CloseIcon fontSize="small" />
+              <CloseIcon />
             </IconButton>
           </Box>
         </Box>
