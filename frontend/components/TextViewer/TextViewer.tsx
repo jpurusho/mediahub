@@ -102,7 +102,16 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   const toggleMaximize = useCallback(() => {
     console.log('[TextViewer] ===== MAXIMIZE/RESTORE CLICKED =====');
     console.log('[TextViewer] Current maximized state:', maximized);
-    setMaximized((prev) => !prev);
+    setMaximized((prev) => {
+      console.log('[TextViewer] ⚡ Setting maximized to:', !prev);
+      return !prev;
+    });
+  }, [maximized]);
+
+  // Log when maximized state changes
+  useEffect(() => {
+    console.log('[TextViewer] ⚡⚡⚡ MAXIMIZED STATE EFFECT - maximized is now:', maximized);
+    console.log('[TextViewer] Window will be:', maximized ? '100vw x 100vh' : '90vw x 85vh');
   }, [maximized]);
 
   // Keyboard shortcuts
@@ -135,11 +144,15 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        pointerEvents: 'auto',
+      }}
+      onMouseDown={(e) => {
+        console.log('[TextViewer] 🖱️ BACKDROP MOUSEDOWN', e.target);
       }}
       onClick={(e) => {
-        // Close on backdrop click
+        console.log('[TextViewer] 🖱️ BACKDROP CLICK', e.target, e.currentTarget);
         if (e.target === e.currentTarget) {
-          console.log('[TextViewer] Backdrop clicked - closing');
+          console.log('[TextViewer] Backdrop direct click - closing');
           onClose();
         }
       }}
@@ -154,8 +167,17 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           display: 'flex',
           flexDirection: 'column',
           boxShadow: 24,
+          pointerEvents: 'auto',
+          position: 'relative',
+          zIndex: 10000,
         }}
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => {
+          console.log('[TextViewer] 🖱️ CONTENT BOX MOUSEDOWN', e.target);
+        }}
+        onClick={(e) => {
+          console.log('[TextViewer] 🖱️ CONTENT BOX CLICK', e.target);
+          e.stopPropagation();
+        }}
       >
         {/* Title Bar */}
         <Box
@@ -178,10 +200,18 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             </Typography>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, pointerEvents: 'auto', position: 'relative', zIndex: 10001 }}
+            onMouseDown={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER MOUSEDOWN')}
+            onClick={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER CLICK')}
+          >
             <IconButton
-              onClick={handleCopy}
-              sx={{ color: copied ? '#4caf50' : '#fff' }}
+              onMouseDown={(e) => console.log('[TextViewer] 🖱️ COPY BUTTON MOUSEDOWN')}
+              onClick={(e) => {
+                console.log('[TextViewer] 🖱️ COPY BUTTON CLICK');
+                handleCopy();
+              }}
+              sx={{ color: copied ? '#4caf50' : '#fff', pointerEvents: 'auto', zIndex: 1 }}
               size="small"
               title={copied ? 'Copied!' : 'Copy to clipboard'}
             >
@@ -201,16 +231,24 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               <OpenInNewIcon fontSize="small" />
             </IconButton>
             <IconButton
-              onClick={toggleMaximize}
-              sx={{ color: '#fff' }}
+              onMouseDown={(e) => console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON MOUSEDOWN')}
+              onClick={(e) => {
+                console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON CLICK');
+                toggleMaximize();
+              }}
+              sx={{ color: '#fff', pointerEvents: 'auto', zIndex: 1 }}
               size="small"
               title={maximized ? 'Restore' : 'Maximize'}
             >
               {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
             </IconButton>
             <IconButton
-              onClick={onClose}
-              sx={{ color: '#fff', ml: 1 }}
+              onMouseDown={(e) => console.log('[TextViewer] 🖱️ CLOSE BUTTON MOUSEDOWN')}
+              onClick={(e) => {
+                console.log('[TextViewer] 🖱️ CLOSE BUTTON CLICK');
+                onClose();
+              }}
+              sx={{ color: '#fff', ml: 1, pointerEvents: 'auto', zIndex: 1 }}
               size="small"
               title="Close (ESC)"
             >
