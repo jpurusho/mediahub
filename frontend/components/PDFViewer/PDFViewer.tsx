@@ -56,24 +56,8 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
-
-        // Calculate initial scale to fit page width to viewport
-        if (containerRef.current) {
-          const page = await pdf.getPage(1);
-          // Get viewport with rotation respected
-          const viewport = page.getViewport({ scale: 1.0, rotation: page.rotate || 0 });
-          const containerWidth = containerRef.current.clientWidth - 100; // subtract padding + margins
-          const fitScale = containerWidth / viewport.width;
-          // Use fit scale, capped at 2.0 to prevent over-zooming on very small pages
-          const initialScale = Math.min(Math.max(fitScale, 0.5), 2.0);
-          setScale(initialScale);
-          console.log('PDF fit calculation:', {
-            pageWidth: viewport.width,
-            containerWidth,
-            fitScale,
-            initialScale
-          });
-        }
+        // Always start at 100% zoom - simple and predictable
+        setScale(1.0);
       } catch (err) {
         console.error('Failed to load PDF:', err);
         setError('Failed to load PDF file');
@@ -95,25 +79,18 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
       try {
         const page = await pdfDoc.getPage(currentPage);
 
-        // Use higher pixel ratio for better quality (retina displays)
-        const pixelRatio = window.devicePixelRatio || 2;
-
-        // Get viewport with page's rotation respected
+        // Get viewport with page's rotation respected and user's scale
         const viewport = page.getViewport({
-          scale: scale * pixelRatio,
+          scale: scale,
           rotation: page.rotate || 0  // Respect PDF's rotation metadata
         });
 
         const canvas = canvasRef.current!;
         const context = canvas.getContext('2d')!;
 
-        // Set actual canvas size (high resolution)
+        // Set canvas size to match viewport (1:1 ratio)
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-
-        // Set display size (CSS size)
-        canvas.style.height = `${viewport.height / pixelRatio}px`;
-        canvas.style.width = `${viewport.width / pixelRatio}px`;
 
         const renderContext = {
           canvasContext: context,
@@ -123,6 +100,12 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
         // Store render task so we can cancel it if needed
         renderTask = page.render(renderContext);
         await renderTask.promise;
+
+        // Scroll to top of container after render
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+          containerRef.current.scrollLeft = 0;
+        }
       } catch (err: any) {
         // Ignore cancellation errors (happens in React StrictMode dev)
         if (err.name !== 'RenderingCancelledException') {
