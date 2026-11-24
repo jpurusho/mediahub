@@ -215,6 +215,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               {/* Line numbers */}
               <Box
                 sx={{
+                  minWidth: `${String(textContent.split('\n').length).length * 12 + 40}px`,
                   p: 3,
                   pr: 2,
                   bgcolor: '#21252b',
@@ -225,6 +226,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
                   textAlign: 'right',
                   userSelect: 'none',
                   borderRight: '1px solid #181a1f',
+                  flexShrink: 0,
                 }}
               >
                 {textContent.split('\n').map((_, i) => (
