@@ -60,7 +60,8 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
         // Calculate initial scale to fit page width to viewport
         if (containerRef.current) {
           const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 1.0 });
+          // Get viewport with rotation respected
+          const viewport = page.getViewport({ scale: 1.0, rotation: page.rotate || 0 });
           const containerWidth = containerRef.current.clientWidth - 48; // subtract padding
           const fitScale = containerWidth / viewport.width;
           setScale(Math.min(fitScale, 1.5)); // cap at 150% max
@@ -86,7 +87,12 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
 
         // Use higher pixel ratio for better quality (retina displays)
         const pixelRatio = window.devicePixelRatio || 2;
-        const viewport = page.getViewport({ scale: scale * pixelRatio });
+
+        // Get viewport with page's rotation respected
+        const viewport = page.getViewport({
+          scale: scale * pixelRatio,
+          rotation: page.rotate || 0  // Respect PDF's rotation metadata
+        });
 
         const canvas = canvasRef.current!;
         const context = canvas.getContext('2d')!;
