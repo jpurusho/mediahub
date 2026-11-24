@@ -682,7 +682,7 @@ export default function Library() {
               <MenuItem value="audio">Audio</MenuItem>
               <MenuItem value="image">Image</MenuItem>
               <MenuItem value="html">HTML</MenuItem>
-              <MenuItem value="document">Document (PDF, JSON, Markdown, Text)</MenuItem>
+              <MenuItem value="document">Document (PDF, PowerPoint, JSON, Markdown, Text)</MenuItem>
               {/* Future: PowerPoint, Word will be added here */}
             </Select>
           </FormControl>

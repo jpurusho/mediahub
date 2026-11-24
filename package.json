@@ -38,6 +38,7 @@
     "music-metadata": "^12.7.0",
     "node-cron": "^4.2.1",
     "pdfjs-dist": "^6.5.438",
+    "react-draggable": "^4.7.2",
     "react-window": "^2.5.3",
     "sharp": "^0.35.5",
     "winston": "^3.19.0",
