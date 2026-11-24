@@ -287,8 +287,8 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
         sx={{
           flex: 1,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: 'flex-start',  // Start from top - no clipping!
+          justifyContent: 'center',   // Center horizontally
           overflow: 'auto',
           bgcolor: '#525659',
           p: 3,
