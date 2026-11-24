@@ -7,33 +7,17 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Paper,
-  PaperProps,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import MaximizeIcon from '@mui/icons-material/Fullscreen';
 import RestoreIcon from '@mui/icons-material/FullscreenExit';
-import Draggable from 'react-draggable';
 
 interface TextViewerProps {
   filePath: string;
   title: string;
   onClose: () => void;
-}
-
-function DraggablePaper(props: PaperProps) {
-  const nodeRef = React.useRef(null);
-  return (
-    <Draggable
-      handle="#draggable-text-viewer-title"
-      cancel={'[class*="MuiDialogContent-root"], [class*="MuiIconButton-root"], [class*="MuiButton-root"], button'}
-      nodeRef={nodeRef}
-    >
-      <Paper {...props} ref={nodeRef} />
-    </Draggable>
-  );
 }
 
 export default function TextViewer({ filePath, title, onClose }: TextViewerProps) {
@@ -120,7 +104,6 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
       open={true}
       onClose={onClose}
       maxWidth={false}
-      PaperComponent={maximized ? Paper : DraggablePaper}
       PaperProps={{
         sx: {
           width: maximized ? '100vw' : '90vw',
@@ -143,32 +126,18 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           justifyContent: 'space-between',
         }}
       >
-        <Box
-          id={maximized ? undefined : "draggable-text-viewer-title"}
-          sx={{
-            cursor: maximized ? 'default' : 'move',
-            flex: 1,
-            userSelect: 'none',
-          }}
-        >
-          <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500, userSelect: 'none' }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
             {title}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#888', userSelect: 'none' }}>
+          <Typography variant="caption" sx={{ color: '#888' }}>
             Text Document
           </Typography>
         </Box>
 
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCopy();
-            }}
+            onClick={handleCopy}
             sx={{ color: copied ? '#4caf50' : '#fff' }}
             size="small"
             title={copied ? 'Copied!' : 'Copy to clipboard'}
@@ -181,10 +150,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             </Typography>
           )}
           <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenExternal();
-            }}
+            onClick={handleOpenExternal}
             sx={{ color: '#fff' }}
             size="small"
             title="Open in editor"
@@ -192,10 +158,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             <OpenInNewIcon fontSize="small" />
           </IconButton>
           <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMaximize();
-            }}
+            onClick={toggleMaximize}
             sx={{ color: '#fff' }}
             size="small"
             title={maximized ? 'Restore' : 'Maximize'}
@@ -203,10 +166,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
           </IconButton>
           <IconButton
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
+            onClick={onClose}
             sx={{ color: '#fff', ml: 1 }}
             size="small"
             title="Close (ESC)"
