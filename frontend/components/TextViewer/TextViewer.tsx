@@ -157,9 +157,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          pointerEvents: 'none', // Make title bar non-clickable
         }}
       >
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, pointerEvents: 'none' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
             {title}
           </Typography>
@@ -168,13 +169,13 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pointerEvents: 'auto', position: 'relative', zIndex: 10 }}>
           <IconButton
             onClick={(e) => {
               console.log('[TextViewer] 🖱️ COPY BUTTON ONCLICK FIRED', e);
               handleCopy();
             }}
-            sx={{ color: copied ? '#4caf50' : '#fff' }}
+            sx={{ color: copied ? '#4caf50' : '#fff', pointerEvents: 'auto' }}
             size="small"
             title={copied ? 'Copied!' : 'Copy to clipboard'}
           >
@@ -190,7 +191,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON ONCLICK FIRED', e);
               handleOpenExternal();
             }}
-            sx={{ color: '#fff' }}
+            sx={{ color: '#fff', pointerEvents: 'auto' }}
             size="small"
             title="Open in editor"
           >
@@ -201,7 +202,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON ONCLICK FIRED', e);
               toggleMaximize();
             }}
-            sx={{ color: '#fff' }}
+            sx={{ color: '#fff', pointerEvents: 'auto' }}
             size="small"
             title={maximized ? 'Restore' : 'Maximize'}
           >
@@ -213,7 +214,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               console.log('[TextViewer] ===== CLOSE BUTTON CLICKED =====');
               onClose();
             }}
-            sx={{ color: '#fff', ml: 1 }}
+            sx={{ color: '#fff', ml: 1, pointerEvents: 'auto' }}
             size="small"
             title="Close (ESC)"
           >
