@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   IconButton,
@@ -10,6 +10,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import MaximizeIcon from '@mui/icons-material/Fullscreen';
 import RestoreIcon from '@mui/icons-material/FullscreenExit';
+import Draggable from 'react-draggable';
 
 interface TextViewerProps {
   filePath: string;
@@ -23,6 +24,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  const nodeRef = useRef(null);
 
   console.log('[TextViewer] RENDER - maximized:', maximized, 'copied:', copied, 'loading:', loading);
 
@@ -157,29 +159,38 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
         }
       }}
     >
-      <Box
-        sx={{
-          width: maximized ? '100vw' : '90vw',
-          height: maximized ? '100vh' : '85vh',
-          maxWidth: maximized ? '100vw' : '1600px',
-          maxHeight: maximized ? '100vh' : '900px',
-          bgcolor: '#1e1e1e',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: 24,
-          pointerEvents: 'auto',
-          position: 'relative',
-          zIndex: 10000,
-        }}
-        onMouseDown={(e) => {
-          console.log('[TextViewer] 🖱️ CONTENT BOX MOUSEDOWN', e.target);
-        }}
-        onClick={(e) => {
-          console.log('[TextViewer] 🖱️ CONTENT BOX CLICK', e.target);
-          e.stopPropagation();
-        }}
+      <Draggable
+        nodeRef={nodeRef}
+        handle="#draggable-title-text"
+        disabled={maximized}
+        bounds="parent"
       >
-        {/* Title Bar */}
+        <Box
+          ref={nodeRef}
+          sx={{
+            width: maximized ? '100vw' : '90vw',
+            height: maximized ? '100vh' : '85vh',
+            maxWidth: maximized ? '100vw' : '1600px',
+            maxHeight: maximized ? '100vh' : '900px',
+            bgcolor: '#1e1e1e',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: 24,
+            pointerEvents: 'auto',
+            position: maximized ? 'fixed' : 'relative',
+            top: maximized ? 0 : 'auto',
+            left: maximized ? 0 : 'auto',
+            zIndex: 10000,
+          }}
+          onMouseDown={(e) => {
+            console.log('[TextViewer] 🖱️ CONTENT BOX MOUSEDOWN', e.target);
+          }}
+          onClick={(e) => {
+            console.log('[TextViewer] 🖱️ CONTENT BOX CLICK', e.target);
+            e.stopPropagation();
+          }}
+        >
+        {/* Title Bar - Split into two independent zones */}
         <Box
           sx={{
             bgcolor: '#2d2d2d',
@@ -189,18 +200,32 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
             alignItems: 'center',
             justifyContent: 'space-between',
             flexShrink: 0,
-            pointerEvents: 'none', // Make title bar transparent to clicks
           }}
         >
-          <Box sx={{ flex: 1, pointerEvents: 'none' }}>
-            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500, pointerEvents: 'none' }}>
+          {/* ZONE 1: DRAGGABLE AREA - Drag here to move window */}
+          <Box
+            id="draggable-title-text"
+            onMouseDown={() => console.log('[TextViewer] 🖱️ DRAGGABLE TITLE AREA MOUSEDOWN - drag starting')}
+            sx={{
+              flex: 1,
+              cursor: maximized ? 'default' : 'move',
+              pointerEvents: 'auto',
+              userSelect: 'none',
+              py: 1,
+              '&:hover': {
+                bgcolor: maximized ? 'transparent' : 'rgba(255, 255, 255, 0.05)',
+              },
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
               {title}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#888', pointerEvents: 'none' }}>
-              Text Document
+            <Typography variant="caption" sx={{ color: '#888' }}>
+              {maximized ? 'Text Document (Drag disabled)' : 'Text Document (Drag to move)'}
             </Typography>
           </Box>
 
+          {/* ZONE 2: BUTTON AREA - Buttons only, no dragging */}
           <Box
             sx={{
               display: 'flex',
@@ -210,7 +235,10 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               position: 'relative',
               zIndex: 10001,
             }}
-            onMouseDown={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER MOUSEDOWN')}
+            onMouseDown={(e) => {
+              console.log('[TextViewer] 🖱️ BUTTON CONTAINER MOUSEDOWN');
+              e.stopPropagation(); // Prevent drag from starting
+            }}
             onClick={(e) => console.log('[TextViewer] 🖱️ BUTTON CONTAINER CLICK')}
           >
             <IconButton
@@ -399,6 +427,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           )}
         </Box>
       </Box>
+      </Draggable>
     </Box>
   );
 }
