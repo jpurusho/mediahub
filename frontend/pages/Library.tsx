@@ -850,63 +850,81 @@ export default function Library() {
           const isDocument = ['html', 'json', 'markdown', 'pdf'].includes(itemType);
           const isImage = itemType === 'image';
 
-          return (
-            <>
-              {menuItem?.filePath && (
-                <MenuItem onClick={() => { handlePlayItem(menuItem); setMenuAnchor(null); }}>
-                  <ListItemIcon><PlayArrowIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>{isDocument || isImage ? 'View' : 'Play'}</ListItemText>
-                </MenuItem>
-              )}
-              {menuItem?.filePath && isPlayable && (
-                <MenuItem onClick={() => { openInSystemPlayer(menuItem!.filePath!); setMenuAnchor(null); }}>
-                  <ListItemIcon><OpenWithIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Open in System Player</ListItemText>
-                </MenuItem>
-              )}
-              {menuItem?.filePath && (
-                <MenuItem onClick={() => { openInFinder(menuItem!.filePath!); setMenuAnchor(null); }}>
-                  <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Show in Finder</ListItemText>
-                </MenuItem>
-              )}
-              <Divider />
-              {isPlayable && (
-                <MenuItem onClick={() => { if (menuItem) setAddToPlaylistVideo({ id: menuItem.videoId, title: menuItem.title, channel: menuItem.channel, channelId: '', thumbnail: menuItem.thumbnailUrl || '', duration: menuItem.duration, publishedAt: menuItem.downloadedAt || '', viewCount: 0, description: '' }); setMenuAnchor(null); }}>
-                  <ListItemIcon><PlaylistAddIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Add to Playlist</ListItemText>
-                </MenuItem>
-              )}
-              {isPlayable && (
-                <MenuItem onClick={handleTranscribe}>
-                  <ListItemIcon>
-                    <SubtitlesIcon fontSize="small" color={menuItem && transcriptStatus[menuItem.videoId] ? 'success' : 'inherit'} />
-                  </ListItemIcon>
-                  <ListItemText>
-                    {menuItem && transcriptStatus[menuItem.videoId] ? 'View Transcript' : 'Transcribe'}
-                  </ListItemText>
-                </MenuItem>
-              )}
-              {isPlayable && <Divider />}
-              <MenuItem onClick={openRenameDialog}>
-                <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Rename</ListItemText>
+          const items = [];
+
+          if (menuItem?.filePath) {
+            items.push(
+              <MenuItem key="play" onClick={() => { handlePlayItem(menuItem); setMenuAnchor(null); }}>
+                <ListItemIcon><PlayArrowIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{isDocument || isImage ? 'View' : 'Play'}</ListItemText>
               </MenuItem>
-              {menuItem?.filePath && itemType === 'video' && menuItem.format && menuItem.format !== 'mp4' && (
-                <MenuItem onClick={async () => {
-                  if (!menuItem?.filePath) return;
-                  setMenuAnchor(null);
-                  setConverting(prev => new Set(prev).add(menuItem.videoId));
-                  const result = await window.api.app.convertToMp4(menuItem.filePath);
-                  setConverting(prev => { const next = new Set(prev); next.delete(menuItem.videoId); return next; });
-                  if (result.success && result.outputPath) window.api.app.showInFinder(result.outputPath);
-                }}>
-                  <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText>Convert to MP4</ListItemText>
-                </MenuItem>
-              )}
-            </>
+            );
+          }
+
+          if (menuItem?.filePath && isPlayable) {
+            items.push(
+              <MenuItem key="system-player" onClick={() => { openInSystemPlayer(menuItem!.filePath!); setMenuAnchor(null); }}>
+                <ListItemIcon><OpenWithIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Open in System Player</ListItemText>
+              </MenuItem>
+            );
+          }
+
+          if (menuItem?.filePath) {
+            items.push(
+              <MenuItem key="finder" onClick={() => { openInFinder(menuItem!.filePath!); setMenuAnchor(null); }}>
+                <ListItemIcon><FolderOpenIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Show in Finder</ListItemText>
+              </MenuItem>
+            );
+          }
+
+          items.push(<Divider key="divider1" />);
+
+          if (isPlayable) {
+            items.push(
+              <MenuItem key="playlist" onClick={() => { if (menuItem) setAddToPlaylistVideo({ id: menuItem.videoId, title: menuItem.title, channel: menuItem.channel, channelId: '', thumbnail: menuItem.thumbnailUrl || '', duration: menuItem.duration, publishedAt: menuItem.downloadedAt || '', viewCount: 0, description: '' }); setMenuAnchor(null); }}>
+                <ListItemIcon><PlaylistAddIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Add to Playlist</ListItemText>
+              </MenuItem>
+            );
+            items.push(
+              <MenuItem key="transcribe" onClick={handleTranscribe}>
+                <ListItemIcon>
+                  <SubtitlesIcon fontSize="small" color={menuItem && transcriptStatus[menuItem.videoId] ? 'success' : 'inherit'} />
+                </ListItemIcon>
+                <ListItemText>
+                  {menuItem && transcriptStatus[menuItem.videoId] ? 'View Transcript' : 'Transcribe'}
+                </ListItemText>
+              </MenuItem>
+            );
+            items.push(<Divider key="divider2" />);
+          }
+
+          items.push(
+            <MenuItem key="rename" onClick={openRenameDialog}>
+              <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Rename</ListItemText>
+            </MenuItem>
           );
+
+          if (menuItem?.filePath && itemType === 'video' && menuItem.format && menuItem.format !== 'mp4') {
+            items.push(
+              <MenuItem key="convert" onClick={async () => {
+                if (!menuItem?.filePath) return;
+                setMenuAnchor(null);
+                setConverting(prev => new Set(prev).add(menuItem.videoId));
+                const result = await window.api.app.convertToMp4(menuItem.filePath);
+                setConverting(prev => { const next = new Set(prev); next.delete(menuItem.videoId); return next; });
+                if (result.success && result.outputPath) window.api.app.showInFinder(result.outputPath);
+              }}>
+                <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Convert to MP4</ListItemText>
+              </MenuItem>
+            );
+          }
+
+          return items;
         })()}
         <Divider />
         {menuItem?.filePath && (

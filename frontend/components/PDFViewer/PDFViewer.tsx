@@ -89,6 +89,8 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return;
 
+    let renderTask: any = null;
+
     async function renderPage() {
       try {
         const page = await pdfDoc.getPage(currentPage);
@@ -118,13 +120,25 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
           viewport: viewport,
         };
 
-        await page.render(renderContext).promise;
-      } catch (err) {
-        console.error('Failed to render page:', err);
+        // Store render task so we can cancel it if needed
+        renderTask = page.render(renderContext);
+        await renderTask.promise;
+      } catch (err: any) {
+        // Ignore cancellation errors (happens in React StrictMode dev)
+        if (err.name !== 'RenderingCancelledException') {
+          console.error('Failed to render page:', err);
+        }
       }
     }
 
     renderPage();
+
+    // Cleanup: cancel any in-flight render operations
+    return () => {
+      if (renderTask) {
+        renderTask.cancel();
+      }
+    };
   }, [pdfDoc, currentPage, scale]);
 
   // Keyboard shortcuts
