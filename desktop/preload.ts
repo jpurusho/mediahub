@@ -109,6 +109,7 @@ const api: ElectronAPI = {
     get: (id: number) => ipcRenderer.invoke('indexedFolders:get', id),
     update: (id: number, updates: any) => ipcRenderer.invoke('indexedFolders:update', id, updates),
     delete: (id: number) => ipcRenderer.invoke('indexedFolders:delete', id),
+    rescan: (id: number) => ipcRenderer.invoke('indexedFolders:rescan', id),
   },
   fileWatcher: {
     getWatchedFolders: () => ipcRenderer.invoke('fileWatcher:getWatchedFolders'),

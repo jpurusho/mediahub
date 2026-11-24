@@ -381,6 +381,7 @@ export interface ElectronAPI {
     get: (id: number) => Promise<IndexedFolder | null>;
     update: (id: number, updates: { lastScannedAt?: string; fileCount?: number; totalSize?: number; enabled?: boolean }) => Promise<void>;
     delete: (id: number) => Promise<void>;
+    rescan: (id: number) => Promise<{ itemsDeleted: number; filesFound: number; filesIndexed: number; filesFailed: number }>;
   };
   fileWatcher: {
     getWatchedFolders: () => Promise<number[]>;

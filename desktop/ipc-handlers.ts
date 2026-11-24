@@ -571,6 +571,43 @@ export function registerIpcHandlers(): void {
     return { itemsDeleted };
   });
 
+  ipcMain.handle('indexedFolders:rescan', async (_event, id: number) => {
+    const folder = getIndexedFolder(id);
+    if (!folder) {
+      throw new Error('Folder not found');
+    }
+
+    logger.info('[IPC] Rescanning folder', { folderId: id, path: folder.path });
+
+    // Delete existing media items from this folder
+    const itemsDeleted = require('./services/database').deleteMediaItemsByFolderPath(folder.path);
+
+    logger.info('[IPC] Deleted old media items before rescan', {
+      folderId: id,
+      itemsDeleted
+    });
+
+    // Re-scan the folder
+    await indexer.scanFolder(folder.path, folder.recursive);
+
+    // Update last scanned timestamp
+    updateIndexedFolder(id, { lastScannedAt: new Date().toISOString() });
+
+    logger.info('[IPC] Folder rescan complete', {
+      folderId: id
+    });
+
+    // Get the final progress (approximation of files found/indexed)
+    const progress = indexer.getProgress();
+
+    return {
+      itemsDeleted,
+      filesFound: progress.filesFound,
+      filesIndexed: progress.filesProcessed,
+      filesFailed: progress.filesFailed
+    };
+  });
+
   // ─── File Watcher ────────────────────────────────────────────────────────────
 
   ipcMain.handle('fileWatcher:getWatchedFolders', () => {

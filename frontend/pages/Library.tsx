@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -97,6 +98,7 @@ export default function Library() {
   const [viewingText, setViewingText] = useState<LibraryItem | null>(null);
   const [manageFoldersOpen, setManageFoldersOpen] = useState(false);
   const [indexedFolders, setIndexedFolders] = useState<Array<{ id: number; path: string; lastScannedAt: string }>>([]);
+  const [rescanning, setRescanning] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadLibrary();
@@ -250,6 +252,33 @@ export default function Library() {
       loadLibrary(); // Refresh library
     } catch (error) {
       setSnackbarMessage(`Failed to remove folder: ${(error as Error).message}`);
+    }
+  }
+
+  async function handleRescanFolder(folderId: number, folderPath: string) {
+    try {
+      // Add to rescanning set
+      setRescanning(prev => new Set(prev).add(folderId));
+      setSnackbarMessage(`Rescanning folder: ${folderPath}`);
+
+      const result = await window.api.indexedFolders.rescan(folderId);
+
+      setSnackbarMessage(
+        `Rescan complete! Found ${result.filesFound} files, indexed ${result.filesIndexed} files.` +
+        (result.filesFailed > 0 ? ` ${result.filesFailed} failed.` : '')
+      );
+
+      loadIndexedFolders();
+      loadLibrary(); // Refresh library
+    } catch (error) {
+      setSnackbarMessage(`Failed to rescan folder: ${(error as Error).message}`);
+    } finally {
+      // Remove from rescanning set
+      setRescanning(prev => {
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
+      });
     }
   }
 
@@ -1107,6 +1136,14 @@ export default function Library() {
                       Last scanned: {folder.lastScannedAt ? new Date(folder.lastScannedAt).toLocaleString() : 'Never'}
                     </Typography>
                   </Box>
+                  <IconButton
+                    color="primary"
+                    onClick={() => handleRescanFolder(folder.id, folder.path)}
+                    disabled={rescanning.has(folder.id)}
+                    title={rescanning.has(folder.id) ? 'Rescanning...' : 'Rescan folder for new files'}
+                  >
+                    {rescanning.has(folder.id) ? <CircularProgress size={24} /> : <RefreshIcon />}
+                  </IconButton>
                   <IconButton
                     color="error"
                     onClick={() => {
