@@ -15,11 +15,21 @@ let chokidar: any;
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.m4v', '.flv', '.wmv', '.mpg', '.mpeg', '.3gp'];
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.aac', '.flac', '.wav', '.ogg', '.opus', '.wma', '.alac'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp', '.tiff'];
+const HTML_EXTENSIONS = ['.html', '.htm'];
+const JSON_EXTENSIONS = ['.json'];
+const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
+const PDF_EXTENSIONS = ['.pdf'];
+const TEXT_EXTENSIONS = ['.txt', '.log'];
 
 const ALL_MEDIA_EXTENSIONS = new Set([
   ...VIDEO_EXTENSIONS,
   ...AUDIO_EXTENSIONS,
   ...IMAGE_EXTENSIONS,
+  ...HTML_EXTENSIONS,
+  ...JSON_EXTENSIONS,
+  ...MARKDOWN_EXTENSIONS,
+  ...PDF_EXTENSIONS,
+  ...TEXT_EXTENSIONS,
 ]);
 
 /**
