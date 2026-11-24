@@ -22,11 +22,11 @@ A comprehensive media library manager for macOS. Browse your YouTube playlists a
 
 ## Install (macOS)
 
-1. Download the `.zip` from [Releases](https://github.com/jpurusho/ytd/releases)
+1. Download the `.zip` from [Releases](https://github.com/jpurusho/mediahub/releases)
 2. Extract (double-click)
-3. Move `ytd.app` to `/Applications`
-4. Run: `xattr -rc /Applications/ytd.app`
-5. Open ytd and sign in with Google
+3. Move `MediaHub.app` to `/Applications`
+4. Run: `xattr -rc /Applications/MediaHub.app`
+5. Open MediaHub and sign in with Google
 
 ## Development
 
@@ -39,8 +39,8 @@ A comprehensive media library manager for macOS. Browse your YouTube playlists a
 ### Setup
 
 ```bash
-git clone git@github.com:jpurusho/ytd.git
-cd ytd
+git clone git@github.com:jpurusho/mediahub.git
+cd mediahub
 cp .env.example .env
 # Edit .env with your Google OAuth Client ID and Secret
 npm install
@@ -91,7 +91,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture with 
 **Stack:** Electron 33 · React 18 · MUI 5 · TypeScript 5 · Vite 6 · SQLite · yt-dlp · ffmpeg
 
 ```
-ytd/
+mediahub/
 ├── desktop/        # Electron main process (services, IPC)
 ├── frontend/       # React renderer (pages, components, themes)
 ├── shared/         # TypeScript interfaces
