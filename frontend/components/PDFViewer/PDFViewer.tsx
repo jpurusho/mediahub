@@ -62,9 +62,17 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
           const page = await pdf.getPage(1);
           // Get viewport with rotation respected
           const viewport = page.getViewport({ scale: 1.0, rotation: page.rotate || 0 });
-          const containerWidth = containerRef.current.clientWidth - 48; // subtract padding
+          const containerWidth = containerRef.current.clientWidth - 100; // subtract padding + margins
           const fitScale = containerWidth / viewport.width;
-          setScale(Math.min(fitScale, 1.5)); // cap at 150% max
+          // Use fit scale, capped at 2.0 to prevent over-zooming on very small pages
+          const initialScale = Math.min(Math.max(fitScale, 0.5), 2.0);
+          setScale(initialScale);
+          console.log('PDF fit calculation:', {
+            pageWidth: viewport.width,
+            containerWidth,
+            fitScale,
+            initialScale
+          });
         }
       } catch (err) {
         console.error('Failed to load PDF:', err);
@@ -311,9 +319,14 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
               bgcolor: 'white',
               boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
               display: 'inline-block',
+              p: 0,
+              lineHeight: 0, // Remove extra space below canvas
             }}
           >
-            <canvas ref={canvasRef} />
+            <canvas
+              ref={canvasRef}
+              style={{ display: 'block' }}
+            />
           </Box>
         )}
       </Box>
