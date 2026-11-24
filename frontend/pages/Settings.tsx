@@ -194,7 +194,7 @@ export default function Settings() {
           )}
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, ml: 4 }}>
             ⚠️ Requires Full Disk Access permission on macOS.<br />
-            Go to System Settings → Privacy & Security → Full Disk Access → Add ytd.app
+            Go to System Settings → Privacy & Security → Full Disk Access → Add MediaHub.app
           </Typography>
         </Box>
       </Paper>
@@ -406,7 +406,7 @@ export default function Settings() {
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.6 }}>
               No pre-built binary available. To update:<br/>
-              1. cd ~/experimental/ytd<br/>
+              1. cd ~/experimental/mediahub<br/>
               2. git pull origin main<br/>
               3. npm install<br/>
               4. npm run build<br/>
@@ -422,8 +422,8 @@ export default function Settings() {
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, lineHeight: 1.6 }}>
               1. Quit MediaHub<br/>
               2. Extract the .zip in Downloads<br/>
-              3. Replace ytd.app in /Applications<br/>
-              4. Run: xattr -rc /Applications/ytd.app<br/>
+              3. Replace MediaHub.app in /Applications<br/>
+              4. Run: xattr -rc /Applications/MediaHub.app<br/>
               5. Open MediaHub
             </Typography>
             <Typography

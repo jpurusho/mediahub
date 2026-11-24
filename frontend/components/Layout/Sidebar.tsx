@@ -172,7 +172,7 @@ export default function Sidebar({ currentPage, onPageChange, user, onLogout, que
         <Box display="flex" alignItems="center" gap={1}>
           <img src="./icon.png" alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <Typography variant="h6" fontWeight={700} color="primary">
-            YTD
+            MediaHub
           </Typography>
           {version && (
             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
@@ -227,8 +227,8 @@ export default function Sidebar({ currentPage, onPageChange, user, onLogout, que
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem', lineHeight: 1.4 }}>
               1. Quit MediaHub{'\n'}
               2. Extract the .zip{'\n'}
-              3. Replace ytd.app in /Applications{'\n'}
-              4. Run: xattr -rc /Applications/ytd.app
+              3. Replace MediaHub.app in /Applications{'\n'}
+              4. Run: xattr -rc /Applications/MediaHub.app
             </Typography>
             <Typography
               variant="caption"

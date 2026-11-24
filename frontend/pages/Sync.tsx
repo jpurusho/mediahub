@@ -166,7 +166,7 @@ export default function Sync() {
       {peers.length === 0 ? (
         <Paper sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', textAlign: 'center' }} elevation={0}>
           <Typography color="text.secondary" variant="body2">
-            No peers found. Make sure another device is running ytd on the same Wi-Fi.
+            No peers found. Make sure another device is running MediaHub on the same Wi-Fi.
           </Typography>
         </Paper>
       ) : (
