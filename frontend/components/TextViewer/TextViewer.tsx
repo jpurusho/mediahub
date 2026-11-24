@@ -104,11 +104,20 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
 
   const toggleMaximize = useCallback(() => {
     console.log('[TextViewer] ===== MAXIMIZE/RESTORE CLICKED =====');
+    console.log('[TextViewer] Current maximized state:', maximized);
     setMaximized((prev) => {
-      console.log('[TextViewer] Maximized changing from', prev, 'to', !prev);
-      return !prev;
+      const newValue = !prev;
+      console.log('[TextViewer] Maximized changing from', prev, 'to', newValue);
+      console.log('[TextViewer] Dialog will re-render with new size');
+      return newValue;
     });
-  }, []);
+  }, [maximized]);
+
+  // Track maximize state changes
+  useEffect(() => {
+    console.log('[TextViewer] ⚡ MAXIMIZED STATE CHANGED TO:', maximized);
+    console.log('[TextViewer] Dialog size will be:', maximized ? '100vw x 100vh' : '90vw x 85vh');
+  }, [maximized]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -136,7 +145,18 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
         onClose();
       }}
       maxWidth={false}
+      disableEscapeKeyDown={false}
+      hideBackdrop={false}
+      slotProps={{
+        backdrop: {
+          onClick: (e) => {
+            console.log('[TextViewer] 🖱️ BACKDROP CLICKED', e);
+          }
+        }
+      }}
       PaperProps={{
+        onMouseEnter: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse ENTER'),
+        onMouseLeave: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse LEAVE'),
         sx: {
           width: maximized ? '100vw' : '90vw',
           height: maximized ? '100vh' : '85vh',
@@ -150,6 +170,8 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
     >
       {/* Custom title bar - NOT using MUI DialogTitle to avoid event capture */}
       <Box
+        onMouseEnter={() => console.log('[TextViewer] 🐭 TITLE BAR mouse ENTER')}
+        onMouseLeave={() => console.log('[TextViewer] 🐭 TITLE BAR mouse LEAVE')}
         sx={{
           bgcolor: '#2d2d2d',
           borderBottom: '1px solid #3d3d3d',
@@ -174,6 +196,8 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               console.log('[TextViewer] 🖱️ COPY BUTTON ONCLICK FIRED', e);
               handleCopy();
             }}
+            onMouseEnter={() => console.log('[TextViewer] 🐭 COPY button mouse ENTER')}
+            onMouseLeave={() => console.log('[TextViewer] 🐭 COPY button mouse LEAVE')}
             sx={{ color: copied ? '#4caf50' : '#fff' }}
             size="small"
             title={copied ? 'Copied!' : 'Copy to clipboard'}
@@ -213,6 +237,8 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
               console.log('[TextViewer] ===== CLOSE BUTTON CLICKED =====');
               onClose();
             }}
+            onMouseEnter={() => console.log('[TextViewer] 🐭 CLOSE button mouse ENTER')}
+            onMouseLeave={() => console.log('[TextViewer] 🐭 CLOSE button mouse LEAVE')}
             sx={{ color: '#fff', ml: 1 }}
             size="small"
             title="Close (ESC)"
