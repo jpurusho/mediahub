@@ -26,6 +26,8 @@ graph TB
             YT[YouTubeApiService]
             DL[DownloadEngine]
             QM[QueueManager]
+            WS[WhisperTranscriptionService]
+            TQM[TranscriptionQueueManager]
             DB[Database - SQLite]
             TP[ToolPaths]
         end
@@ -35,6 +37,7 @@ graph TB
         Google[Google OAuth2 + YouTube API v3]
         YTDLP[yt-dlp binary]
         FFMPEG[ffmpeg binary]
+        Whisper[OpenAI Whisper - local/API]
     end
 
     UI --> Pages
@@ -45,13 +48,17 @@ graph TB
     IPC --> Auth
     IPC --> YT
     IPC --> QM
+    IPC --> TQM
     QM --> DL
+    TQM --> WS
     DL -->|subprocess| YTDLP
     DL -->|subprocess| FFMPEG
+    WS -->|subprocess| Whisper
     Auth --> Google
     YT --> Google
     Auth --> DB
     QM --> DB
+    TQM --> DB
     TP --> YTDLP
     TP --> FFMPEG
 ```
@@ -242,7 +249,7 @@ erDiagram
 ## Project Structure
 
 ```
-ytd/
+mediahub/
 ├── desktop/                    # Electron main process (TypeScript → CommonJS)
 │   ├── index.ts                # App entry, window, menu
 │   ├── preload.ts              # contextBridge (renderer ↔ main)
@@ -253,6 +260,8 @@ ytd/
 │       ├── youtube-api.ts      # YouTube Data API v3
 │       ├── download-engine.ts  # yt-dlp subprocess management
 │       ├── queue-manager.ts    # Download queue + concurrency
+│       ├── whisper-transcription.ts  # Video transcription (local/API)
+│       ├── transcription-queue-manager.ts  # Transcription queue + concurrency
 │       ├── tool-paths.ts       # Resolve bundled binary paths
 │       └── database.ts         # SQLite schema + CRUD
 ├── frontend/                   # React renderer (TypeScript → Vite ESM)
@@ -275,6 +284,7 @@ ytd/
 5. **YouTube API for browsing, yt-dlp for downloading** — Official API for metadata, unofficial for streams
 6. **Multi-user via OAuth** — Each user signs in with their own Google/YouTube Premium account
 7. **Modular services** — Each concern (auth, API, download, queue, DB) is an independent class
+8. **Dual transcription methods** — Local Whisper (free, Python) or OpenAI API (paid, faster); transcription queue with concurrency control
 
 ## IPC Channel Map
 
@@ -285,12 +295,15 @@ ytd/
 | `downloads:start/cancel/pause/resume/retry` | invoke | Queue management |
 | `downloads:getQueue/getHistory` | invoke | Read state |
 | `playlists:*` | invoke | Local playlist CRUD + YouTube sync |
+| `transcripts:*` | invoke | Start transcription, get/save transcripts, check availability |
 | `app:getVideoFileUrl` | invoke | Serve local media via custom protocol |
 | `app:convertToMp4` | invoke | ffmpeg WebM→MP4 conversion |
 | `download:progress` | event (main→renderer) | Real-time progress |
 | `download:complete` | event (main→renderer) | Download finished |
 | `download:error` | event (main→renderer) | Download failed |
 | `queue:updated` | event (main→renderer) | Queue state changed |
+| `transcription:progress` | event (main→renderer) | Transcription progress |
+| `transcription:complete` | event (main→renderer) | Transcription finished |
 | `app:*` | invoke | Settings, paths, platform |
 
 ## Technology Stack
@@ -306,5 +319,6 @@ ytd/
 | Google APIs | googleapis + google-auth-library |
 | Video Download | yt-dlp (bundled binary) |
 | Video Processing | ffmpeg (bundled binary) |
+| Transcription | openai-whisper (local) or OpenAI API (cloud) |
 | Testing | Vitest |
 | Packaging | electron-builder |
