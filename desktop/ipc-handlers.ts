@@ -889,8 +889,27 @@ export function registerIpcHandlers(): void {
 
   // ─── App ────────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('app:openExternal', (_event, url: string) => {
-    shell.openExternal(url);
+  ipcMain.handle('app:openExternal', async (_event, pathOrUrl: string) => {
+    try {
+      // Check if it's a URL or a file path
+      if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+        // Open URL in browser
+        await shell.openExternal(pathOrUrl);
+        logger.info('[IPC] Opened URL in browser', { url: pathOrUrl });
+      } else {
+        // Open file with default application
+        const result = await shell.openPath(pathOrUrl);
+        if (result) {
+          // openPath returns error string if it fails, empty string if success
+          logger.error('[IPC] Failed to open file', { path: pathOrUrl, error: result });
+          throw new Error(`Failed to open file: ${result}`);
+        }
+        logger.info('[IPC] Opened file with default app', { path: pathOrUrl });
+      }
+    } catch (error: any) {
+      logger.error('[IPC] Error opening external', { pathOrUrl, error: error.message });
+      throw error;
+    }
   });
 
   ipcMain.handle('app:selectDirectory', async () => {

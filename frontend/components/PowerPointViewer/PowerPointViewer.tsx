@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, IconButton, Button, Paper } from '@mui/material';
+import { Box, Typography, IconButton, Button, Paper, Alert } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SlideshowIcon from '@mui/icons-material/Slideshow';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -12,9 +12,23 @@ interface PowerPointViewerProps {
 export function PowerPointViewer({ filePath, onClose }: PowerPointViewerProps) {
   const fileName = filePath.split('/').pop() || 'Unknown';
   const fileExt = fileName.split('.').pop()?.toUpperCase() || 'PPT';
+  const [error, setError] = React.useState<string | null>(null);
+  const [opening, setOpening] = React.useState(false);
 
   const handleOpenExternal = async () => {
-    await window.api.app.openExternal(filePath);
+    try {
+      setError(null);
+      setOpening(true);
+      await window.api.app.openExternal(filePath);
+      // Success - file should open in external app
+      // Optionally close the viewer after a short delay
+      setTimeout(() => onClose(), 500);
+    } catch (err: any) {
+      console.error('[PowerPointViewer] Failed to open external:', err);
+      setError(err?.message || 'Failed to open file. Make sure you have PowerPoint, Keynote, or another presentation app installed.');
+    } finally {
+      setOpening(false);
+    }
   };
 
   // Keyboard shortcut: ESC to close
@@ -74,8 +88,9 @@ export function PowerPointViewer({ filePath, onClose }: PowerPointViewerProps) {
             color="primary"
             startIcon={<OpenInNewIcon />}
             onClick={handleOpenExternal}
+            disabled={opening}
           >
-            Open in External App
+            {opening ? 'Opening...' : 'Open in External App'}
           </Button>
 
           <IconButton onClick={onClose} sx={{ color: '#fff' }}>
@@ -126,19 +141,32 @@ export function PowerPointViewer({ filePath, onClose }: PowerPointViewerProps) {
             LibreOffice, or your default presentation app.
           </Typography>
 
+          {error && (
+            <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
+              {error}
+            </Alert>
+          )}
+
           <Button
             variant="contained"
             color="primary"
             size="large"
             startIcon={<OpenInNewIcon />}
             onClick={handleOpenExternal}
+            disabled={opening}
             sx={{ px: 4 }}
           >
-            Open in External App
+            {opening ? 'Opening...' : 'Open in External App'}
           </Button>
 
           <Typography variant="caption" sx={{ display: 'block', color: '#666', mt: 3 }}>
             {filePath}
+          </Typography>
+
+          <Typography variant="caption" sx={{ display: 'block', color: '#888', mt: 2, fontStyle: 'italic' }}>
+            macOS will use your default app for .{fileExt.toLowerCase()} files.
+            <br />
+            To change: Right-click file in Finder → Get Info → Open with
           </Typography>
         </Paper>
       </Box>
