@@ -18,10 +18,11 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [scale, setScale] = useState(1.5);
+  const [scale, setScale] = useState(1.0);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Load PDF file
   useEffect(() => {
@@ -55,6 +56,15 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
+
+        // Calculate initial scale to fit page width to viewport
+        if (containerRef.current) {
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.0 });
+          const containerWidth = containerRef.current.clientWidth - 48; // subtract padding
+          const fitScale = containerWidth / viewport.width;
+          setScale(Math.min(fitScale, 1.5)); // cap at 150% max
+        }
       } catch (err) {
         console.error('Failed to load PDF:', err);
         setError('Failed to load PDF file');
@@ -262,6 +272,7 @@ export default function PDFViewer({ filePath, title, onClose }: PDFViewerProps) 
 
       {/* PDF Content */}
       <Box
+        ref={containerRef}
         sx={{
           flex: 1,
           display: 'flex',
