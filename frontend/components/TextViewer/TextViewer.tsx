@@ -69,10 +69,30 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
     loadText();
   }, [filePath]);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(textContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(textContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('[TextViewer] Clipboard write failed, trying fallback:', err);
+      // Fallback method
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = textContent;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        console.error('[TextViewer] Fallback copy also failed:', fallbackErr);
+        setError('Failed to copy to clipboard. Please select and copy manually.');
+      }
+    }
   }, [textContent]);
 
   const handleOpenExternal = useCallback(async () => {
@@ -114,9 +134,7 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
       }}
     >
       <DialogTitle
-        id="draggable-text-viewer-title"
         sx={{
-          cursor: maximized ? 'default' : 'move',
           bgcolor: '#2d2d2d',
           borderBottom: '1px solid #3d3d3d',
           p: 2,
@@ -125,7 +143,13 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
           justifyContent: 'space-between',
         }}
       >
-        <Box>
+        <Box
+          id="draggable-text-viewer-title"
+          sx={{
+            cursor: maximized ? 'default' : 'move',
+            flex: 1,
+          }}
+        >
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
             {title}
           </Typography>

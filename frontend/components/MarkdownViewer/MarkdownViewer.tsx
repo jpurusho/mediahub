@@ -100,10 +100,29 @@ export default function MarkdownViewer({ filePath, title, onClose }: MarkdownVie
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(markdownContent);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(markdownContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('[MarkdownViewer] Clipboard write failed, trying fallback:', err);
+      // Fallback method
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = markdownContent;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        console.error('[MarkdownViewer] Fallback copy also failed:', fallbackErr);
+      }
+    }
   }, [markdownContent]);
 
   const handleOpenExternal = useCallback(() => {
