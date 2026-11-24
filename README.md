@@ -1,6 +1,6 @@
 # MediaHub
 
-A comprehensive media library manager for macOS. Browse your YouTube playlists and subscriptions, search videos, preview before downloading, manage a local media library, and organize your content — all with a clean native interface.
+A comprehensive media library manager for macOS. Browse your YouTube playlists and subscriptions, search videos, preview before downloading, manage a local media library, generate searchable transcripts, and organize your content — all with a clean native interface.
 
 ## Features
 
@@ -15,6 +15,7 @@ A comprehensive media library manager for macOS. Browse your YouTube playlists a
 - **Local Playlists** — Create and manage playlists, sync two-way with YouTube
 - **History** — Sortable download history with file status, bulk delete
 - **Local Player** — Built-in media player with seek support
+- **Transcription** — Generate searchable transcripts using local Whisper or OpenAI API
 - **Convert** — Convert WebM to MP4 for ProPresenter/other tools
 - **Themes** — 6 themes (Midnight, YouTube, Ocean, Sunset, GitHub Dark, Light)
 - **Auto-Update** — Checks GitHub Releases for new versions
@@ -34,6 +35,7 @@ A comprehensive media library manager for macOS. Browse your YouTube playlists a
 
 - Node.js 20+
 - `yt-dlp` and `ffmpeg` installed via Homebrew: `brew install yt-dlp ffmpeg`
+- **Optional:** `openai-whisper` for local video transcription: `pip install openai-whisper`
 - Google Cloud project with YouTube Data API v3 enabled
 
 ### Setup
@@ -54,6 +56,20 @@ npm run dev
 3. Create OAuth 2.0 credentials (Desktop app type)
 4. Add authorized redirect URIs: `http://localhost:48620/callback` through `http://localhost:48640/callback`
 5. Copy Client ID and Secret to `.env`
+
+### Transcription Setup
+
+MediaHub supports two transcription methods:
+
+1. **Local Whisper** (free, runs on your machine)
+   - Install: `pip install openai-whisper`
+   - Models: `tiny`, `base`, `small`, `medium`, `large` (larger = more accurate, slower)
+   - Requires: Python 3.8+, ffmpeg
+
+2. **OpenAI API** (paid, faster, cloud-based)
+   - Add `OPENAI_API_KEY` to `.env`
+   - Cost: ~$0.006/minute of audio
+   - Best for quick transcription of long videos
 
 ### Scripts
 
