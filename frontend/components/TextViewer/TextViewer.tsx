@@ -4,8 +4,6 @@ import {
   IconButton,
   Typography,
   CircularProgress,
-  Dialog,
-  DialogContent,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -71,7 +69,6 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
       }, 2000);
     } catch (err) {
       console.error('[TextViewer] ✗ Clipboard write failed, trying fallback:', err);
-      // Fallback method
       try {
         const textArea = document.createElement('textarea');
         textArea.value = textContent;
@@ -105,25 +102,13 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   const toggleMaximize = useCallback(() => {
     console.log('[TextViewer] ===== MAXIMIZE/RESTORE CLICKED =====');
     console.log('[TextViewer] Current maximized state:', maximized);
-    setMaximized((prev) => {
-      const newValue = !prev;
-      console.log('[TextViewer] Maximized changing from', prev, 'to', newValue);
-      console.log('[TextViewer] Dialog will re-render with new size');
-      return newValue;
-    });
-  }, [maximized]);
-
-  // Track maximize state changes
-  useEffect(() => {
-    console.log('[TextViewer] ⚡ MAXIMIZED STATE CHANGED TO:', maximized);
-    console.log('[TextViewer] Dialog size will be:', maximized ? '100vw x 100vh' : '90vw x 85vh');
+    setMaximized((prev) => !prev);
   }, [maximized]);
 
   // Keyboard shortcuts
   useEffect(() => {
     console.log('[TextViewer] Setting up keyboard listener');
     function handleKeyDown(e: KeyboardEvent) {
-      console.log('[TextViewer] Key pressed:', e.key);
       if (e.key === 'Escape') {
         console.log('[TextViewer] ===== ESC KEY PRESSED - CLOSING =====');
         onClose();
@@ -138,209 +123,191 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
   }, [onClose]);
 
   return (
-    <Dialog
-      open={true}
-      onClose={(event, reason) => {
-        console.log('[TextViewer] 🖱️ DIALOG ONCLOSE FIRED - reason:', reason, 'event:', event);
-        onClose();
+    <Box
+      sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        bgcolor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
-      maxWidth={false}
-      disableEscapeKeyDown={false}
-      hideBackdrop={true}
-      disablePortal={false}
-      disableScrollLock={true}
-      PaperProps={{
-        onMouseEnter: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse ENTER'),
-        onMouseLeave: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse LEAVE'),
-        sx: {
-          position: 'fixed',
-          top: maximized ? 0 : '50%',
-          left: maximized ? 0 : '50%',
-          transform: maximized ? 'none' : 'translate(-50%, -50%)',
+      onClick={(e) => {
+        // Close on backdrop click
+        if (e.target === e.currentTarget) {
+          console.log('[TextViewer] Backdrop clicked - closing');
+          onClose();
+        }
+      }}
+    >
+      <Box
+        sx={{
           width: maximized ? '100vw' : '90vw',
           height: maximized ? '100vh' : '85vh',
           maxWidth: maximized ? '100vw' : '1600px',
           maxHeight: maximized ? '100vh' : '900px',
-          m: 0,
           bgcolor: '#1e1e1e',
-          backgroundImage: 'none',
-        },
-      }}
-    >
-      {/* Custom title bar - NOT using MUI DialogTitle to avoid event capture */}
-      <Box
-        onMouseEnter={() => console.log('[TextViewer] 🐭 TITLE BAR mouse ENTER')}
-        onMouseLeave={() => console.log('[TextViewer] 🐭 TITLE BAR mouse LEAVE')}
-        sx={{
-          bgcolor: '#2d2d2d',
-          borderBottom: '1px solid #3d3d3d',
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
-            {title}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#888' }}>
-            Text Document
-          </Typography>
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton
-            onClick={(e) => {
-              console.log('[TextViewer] 🖱️ COPY BUTTON ONCLICK FIRED', e);
-              handleCopy();
-            }}
-            onMouseEnter={() => console.log('[TextViewer] 🐭 COPY button mouse ENTER')}
-            onMouseLeave={() => console.log('[TextViewer] 🐭 COPY button mouse LEAVE')}
-            sx={{ color: copied ? '#4caf50' : '#fff' }}
-            size="small"
-            title={copied ? 'Copied!' : 'Copy to clipboard'}
-          >
-            <ContentCopyIcon fontSize="small" />
-          </IconButton>
-          {copied && (
-            <Typography variant="caption" sx={{ color: '#4caf50', mr: 1 }}>
-              Copied!
-            </Typography>
-          )}
-          <IconButton
-            onClick={(e) => {
-              console.log('[TextViewer] 🖱️ OPEN EXTERNAL BUTTON ONCLICK FIRED', e);
-              handleOpenExternal();
-            }}
-            sx={{ color: '#fff' }}
-            size="small"
-            title="Open in editor"
-          >
-            <OpenInNewIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            onClick={(e) => {
-              console.log('[TextViewer] 🖱️ MAXIMIZE BUTTON ONCLICK FIRED', e);
-              toggleMaximize();
-            }}
-            sx={{ color: '#fff' }}
-            size="small"
-            title={maximized ? 'Restore' : 'Maximize'}
-          >
-            {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
-          </IconButton>
-          <IconButton
-            onClick={(e) => {
-              console.log('[TextViewer] 🖱️ CLOSE BUTTON ONCLICK FIRED', e);
-              console.log('[TextViewer] ===== CLOSE BUTTON CLICKED =====');
-              onClose();
-            }}
-            onMouseEnter={() => console.log('[TextViewer] 🐭 CLOSE button mouse ENTER')}
-            onMouseLeave={() => console.log('[TextViewer] 🐭 CLOSE button mouse LEAVE')}
-            sx={{ color: '#fff', ml: 1 }}
-            size="small"
-            title="Close (ESC)"
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      </Box>
-
-      <DialogContent
-        sx={{
-          p: 0,
-          bgcolor: '#1e1e1e',
-          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          boxShadow: 24,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {loading && (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              gap: 2,
-            }}
-          >
-            <CircularProgress />
-            <Typography sx={{ color: '#fff' }}>Loading text file...</Typography>
-          </Box>
-        )}
-
-        {error && (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              p: 4,
-            }}
-          >
-            <Typography color="error" variant="h6" gutterBottom>
-              Error Loading Text File
+        {/* Title Bar */}
+        <Box
+          sx={{
+            bgcolor: '#2d2d2d',
+            borderBottom: '1px solid #3d3d3d',
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 500 }}>
+              {title}
             </Typography>
-            <Typography sx={{ color: '#aaa' }}>{error}</Typography>
+            <Typography variant="caption" sx={{ color: '#888' }}>
+              Text Document
+            </Typography>
           </Box>
-        )}
 
-        {!loading && !error && (
-          <Box
-            sx={{
-              display: 'flex',
-              overflow: 'auto',
-              height: '100%',
-            }}
-          >
-            {/* Line numbers */}
-            <Box
-              sx={{
-                minWidth: `${String(textContent.split('\n').length).length * 12 + 40}px`,
-                p: 3,
-                pr: 2,
-                bgcolor: '#21252b',
-                color: '#5c6370',
-                fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                textAlign: 'right',
-                userSelect: 'none',
-                borderRight: '1px solid #181a1f',
-                flexShrink: 0,
-              }}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              onClick={handleCopy}
+              sx={{ color: copied ? '#4caf50' : '#fff' }}
+              size="small"
+              title={copied ? 'Copied!' : 'Copy to clipboard'}
             >
-              {textContent.split('\n').map((_, i) => (
-                <div key={i}>{i + 1}</div>
-              ))}
-            </Box>
-            {/* Text content */}
-            <Box
-              component="pre"
-              sx={{
-                m: 0,
-                p: 3,
-                pl: 4,
-                color: '#abb2bf',
-                fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                whiteSpace: 'pre',
-                wordWrap: 'normal',
-                overflowX: 'auto',
-                flex: 1,
-              }}
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+            {copied && (
+              <Typography variant="caption" sx={{ color: '#4caf50', mr: 1 }}>
+                Copied!
+              </Typography>
+            )}
+            <IconButton
+              onClick={handleOpenExternal}
+              sx={{ color: '#fff' }}
+              size="small"
+              title="Open in editor"
             >
-              {textContent}
-            </Box>
+              <OpenInNewIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              onClick={toggleMaximize}
+              sx={{ color: '#fff' }}
+              size="small"
+              title={maximized ? 'Restore' : 'Maximize'}
+            >
+              {maximized ? <RestoreIcon fontSize="small" /> : <MaximizeIcon fontSize="small" />}
+            </IconButton>
+            <IconButton
+              onClick={onClose}
+              sx={{ color: '#fff', ml: 1 }}
+              size="small"
+              title="Close (ESC)"
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </Box>
-        )}
-      </DialogContent>
-    </Dialog>
+        </Box>
+
+        {/* Content Area */}
+        <Box
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            display: 'flex',
+            bgcolor: '#1e1e1e',
+          }}
+        >
+          {loading && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                gap: 2,
+              }}
+            >
+              <CircularProgress />
+              <Typography sx={{ color: '#fff' }}>Loading text file...</Typography>
+            </Box>
+          )}
+
+          {error && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                p: 4,
+              }}
+            >
+              <Typography color="error" variant="h6" gutterBottom>
+                Error Loading Text File
+              </Typography>
+              <Typography sx={{ color: '#aaa' }}>{error}</Typography>
+            </Box>
+          )}
+
+          {!loading && !error && (
+            <Box sx={{ display: 'flex', width: '100%' }}>
+              {/* Line numbers */}
+              <Box
+                sx={{
+                  minWidth: `${String(textContent.split('\n').length).length * 12 + 40}px`,
+                  p: 3,
+                  pr: 2,
+                  bgcolor: '#21252b',
+                  color: '#5c6370',
+                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  textAlign: 'right',
+                  userSelect: 'none',
+                  borderRight: '1px solid #181a1f',
+                  flexShrink: 0,
+                }}
+              >
+                {textContent.split('\n').map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </Box>
+              {/* Text content */}
+              <Box
+                component="pre"
+                sx={{
+                  m: 0,
+                  p: 3,
+                  pl: 4,
+                  color: '#abb2bf',
+                  fontFamily: '"Fira Code", "Monaco", "Menlo", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre',
+                  wordWrap: 'normal',
+                  overflowX: 'auto',
+                  flex: 1,
+                }}
+              >
+                {textContent}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
   );
 }
