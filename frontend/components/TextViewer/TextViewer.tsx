@@ -146,23 +146,22 @@ export default function TextViewer({ filePath, title, onClose }: TextViewerProps
       }}
       maxWidth={false}
       disableEscapeKeyDown={false}
-      hideBackdrop={false}
-      slotProps={{
-        backdrop: {
-          onClick: (e) => {
-            console.log('[TextViewer] 🖱️ BACKDROP CLICKED', e);
-          }
-        }
-      }}
+      hideBackdrop={true}
+      disablePortal={false}
+      disableScrollLock={true}
       PaperProps={{
         onMouseEnter: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse ENTER'),
         onMouseLeave: () => console.log('[TextViewer] 🐭 DIALOG PAPER mouse LEAVE'),
         sx: {
+          position: 'fixed',
+          top: maximized ? 0 : '50%',
+          left: maximized ? 0 : '50%',
+          transform: maximized ? 'none' : 'translate(-50%, -50%)',
           width: maximized ? '100vw' : '90vw',
           height: maximized ? '100vh' : '85vh',
           maxWidth: maximized ? '100vw' : '1600px',
           maxHeight: maximized ? '100vh' : '900px',
-          m: maximized ? 0 : 2,
+          m: 0,
           bgcolor: '#1e1e1e',
           backgroundImage: 'none',
         },
